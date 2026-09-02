@@ -100,7 +100,7 @@ if ! pveam list "$TEMPLATE_STORE" | grep -q "$TEMPLATE"; then
 fi
 
 HOSTNAME="pet-diary"
-APP_DIR="/root/pet-diary"
+APP_DIR="/opt/pet-diary"
 
 echo "== 3. LXC 컨테이너 생성 (VMID: $VMID, 저장소: $ROOTFS_STORE) =="
 pct create "$VMID" "${TEMPLATE_STORE}:vztmpl/${TEMPLATE}" \

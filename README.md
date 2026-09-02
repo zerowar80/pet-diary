@@ -125,7 +125,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scr
 - 만약 자동 clone이 실패해서 이어서 진행이 안 됐다면, 화면에 안내된 대로 아래 단계를 직접 진행하면 됩니다.
   ```bash
   pct enter <출력된VMID>
-  bash /root/pet-diary/scripts/install-lxc.sh
+  bash /opt/pet-diary/scripts/install-lxc.sh
   ```
 
 이 스크립트가 편하지 않다면 아래 B-1 / B-2 단계별 방식을 그대로 따라 하셔도 결과는 동일합니다.
@@ -148,11 +148,14 @@ bash scripts/create-lxc-container.sh 210
 
 비공개 저장소이므로 clone할 때 GitHub 로그인이 필요합니다. 가장 쉬운 방법은 Personal Access Token(PAT)을 만드는 것입니다.
 
+> **왜 `/opt`에 clone하나요?** `/root` 폴더는 기본적으로 root 계정만 드나들 수 있게 잠겨있어서, 앱을 실행하는 전용 계정(`petdiary`)이 그 안에 못 들어갑니다. `/opt`처럼 누구나 지나다닐 수 있는 위치에 둬야 서비스가 정상적으로 시작됩니다.
+
 1. GitHub 웹사이트 → 우측 상단 프로필 → **Settings → Developer settings → Personal access tokens → Tokens (classic)** → **Generate new token**에서 `repo` 권한만 체크해 토큰을 하나 만듭니다.
 2. 컨테이너 안에서 clone할 때 비밀번호 대신 이 토큰을 붙여넣습니다.
 
 ```bash
 pct enter 210
+mkdir -p /opt && cd /opt
 git clone https://github.com/내계정/pet-diary.git
 cd pet-diary
 # Username: 내계정 / Password: 위에서 만든 토큰 붙여넣기
@@ -177,7 +180,7 @@ systemctl restart pet-diary     # 재시작
 
 ```bash
 pct enter 210
-cd pet-diary
+cd /opt/pet-diary
 git pull
 systemctl restart pet-diary
 ```
