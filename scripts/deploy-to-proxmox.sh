@@ -16,7 +16,8 @@
 #   예) bash deploy-to-proxmox.sh \
 #         https://github.com/내계정/pet-diary.git ghp_xxx여기에토큰
 #
-#   GitHub PAT를 생략하면 clone 단계에서 컨테이너 안에 직접 들어가 인증하라는 안내만 나옵니다.
+#   GitHub PAT는 저장소가 비공개일 때만 필요합니다. 저장소를 공개(Public)로 바꾸면 PAT 없이
+#   bash deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git 만으로도 clone까지 자동으로 됩니다.
 #
 #   자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다 (전부 선택 사항):
 #   STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
@@ -111,14 +112,15 @@ echo "== 5. 컨테이너 안에 git 설치 =="
 pct exec "$VMID" -- bash -c "apt-get update -y && apt-get install -y git"
 
 echo "== 6. 저장소 clone =="
+CLONE_URL="$REPO_URL"
 if [ -n "$GITHUB_TOKEN" ]; then
-  AUTH_URL=$(echo "$REPO_URL" | sed -E "s#https://#https://${GITHUB_TOKEN}@#")
-  pct exec "$VMID" -- bash -c "rm -rf '${APP_DIR}' && git clone '${AUTH_URL}' '${APP_DIR}'"
+  CLONE_URL=$(echo "$REPO_URL" | sed -E "s#https://#https://${GITHUB_TOKEN}@#")
+fi
+if pct exec "$VMID" -- bash -c "rm -rf '${APP_DIR}' && git clone '${CLONE_URL}' '${APP_DIR}'"; then
+  echo "clone 완료"
 else
-  echo "GitHub PAT가 제공되지 않았습니다. 컨테이너 안에서 직접 clone해야 합니다:"
-  echo "  pct enter ${VMID}"
-  echo "  git clone ${REPO_URL} ${APP_DIR}"
-  echo "  (Username: GitHub 계정 / Password: Personal Access Token)"
+  echo "!! clone에 실패했습니다. 저장소가 비공개라면 GitHub PAT를 두 번째 인자로 넣어서 다시 실행하거나,"
+  echo "   컨테이너 안에서 직접 clone하세요: pct enter ${VMID} && git clone ${REPO_URL} ${APP_DIR}"
 fi
 
 echo "== 7. .env 파일 준비 =="
@@ -132,10 +134,7 @@ echo ""
 echo "== 여기까지 자동 처리 완료 (VMID: $VMID, 저장소: $ROOTFS_STORE) =="
 echo "남은 수동 단계:"
 echo "  1) pct enter ${VMID}"
-if [ -z "$GITHUB_TOKEN" ]; then
-  echo "  2) git clone ${REPO_URL} ${APP_DIR}   (PAT 없이 실행한 경우)"
-fi
-echo "  3) bash ${APP_DIR}/scripts/install-lxc.sh   (실행 중 AI API 키를 화면에서 바로 입력받습니다)"
+echo "  2) bash ${APP_DIR}/scripts/install-lxc.sh   (실행 중 AI API 키를 화면에서 바로 입력받습니다)"
 echo ""
 if [ -n "$CONTAINER_IP" ]; then
   echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:8000 으로 접속하세요."

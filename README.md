@@ -95,12 +95,14 @@ Proxmox 호스트 쉘에서 아래 한 줄이면 **빈 VMID 자동 탐색 → �
 ```bash
 bash scripts/deploy-to-proxmox.sh <GitHub저장소HTTPS주소> [GitHub PAT]
 
-# 예)
-bash scripts/deploy-to-proxmox.sh \
-  https://github.com/내계정/pet-diary.git ghp_여기에토큰
+# 예) 저장소가 공개(Public)라면 PAT 없이:
+bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git
+
+# 저장소가 비공개(Private)라면 PAT를 추가로:
+bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git ghp_여기에토큰
 ```
 - VMID, 컨테이너를 만들 저장소(storage), IP 모두 Proxmox가 자동으로 찾아서 씁니다.
-- PAT(마지막 인자)를 생략하면 clone 단계만 건너뛰고, 컨테이너 안에서 직접 clone하라는 안내가 나옵니다.
+- PAT는 저장소가 비공개일 때만 필요합니다. 공개 저장소라면 두 번째 인자를 생략하면 됩니다.
 - 실행 중간에 자동으로 정해진 VMID, 저장소, 할당된 IP가 화면에 출력됩니다.
 - DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있어요. 계속 같은 주소를 쓰고 싶으면 공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다.
 - 자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다.
