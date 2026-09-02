@@ -1,28 +1,40 @@
 #!/usr/bin/env bash
 #
 # Proxmox VE 호스트 쉘에서 실행하는 "원클릭 배포" 스크립트입니다.
-# 1) LXC 컨테이너를 새로 만들고
+# 1) LXC 컨테이너를 새로 만들고 (기본: 공유기 DHCP로 IP 자동 할당)
 # 2) 컨테이너 안에 git/필수 패키지를 설치하고
 # 3) 비공개 GitHub 저장소를 clone하고
 # 4) .env.example을 .env로 복사해둡니다.
 #
 # API 키 입력과 최종 설치(scripts/install-lxc.sh 실행)만 컨테이너 안에서 직접 하면 됩니다.
 #
-# 사용법 (Proxmox 호스트 쉘에서):
-#   bash deploy-to-proxmox.sh <VMID> <고정IP/CIDR> <게이트웨이IP> <GitHub저장소HTTPS주소> [GitHub PAT]
+# 사용법 (Proxmox 호스트 쉘에서, IP는 DHCP로 자동 할당):
+#   bash deploy-to-proxmox.sh <VMID> <GitHub저장소HTTPS주소> [GitHub PAT]
 #
-#   예) bash deploy-to-proxmox.sh 210 192.168.0.210/24 192.168.0.1 \
+#   예) bash deploy-to-proxmox.sh 210 \
 #         https://github.com/내계정/pet-diary.git ghp_xxx여기에토큰
 #
 #   GitHub PAT를 생략하면 clone 단계에서 컨테이너 안에 직접 들어가 인증하라는 안내만 나옵니다.
 #
+#   고정 IP를 직접 지정하고 싶다면 환경변수로 넘기세요 (선택 사항):
+#   STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 bash deploy-to-proxmox.sh 210 https://github.com/내계정/pet-diary.git ghp_토큰
+#
 set -euo pipefail
 
 VMID="${1:?VMID를 입력하세요. 예: 210}"
-IP_CIDR="${2:?컨테이너 고정 IP를 CIDR 형식으로 입력하세요. 예: 192.168.0.210/24}"
-GATEWAY="${3:?게이트웨이 IP를 입력하세요. 예: 192.168.0.1}"
-REPO_URL="${4:?GitHub 저장소 HTTPS 주소를 입력하세요. 예: https://github.com/내계정/pet-diary.git}"
-GITHUB_TOKEN="${5:-}"
+REPO_URL="${2:?GitHub 저장소 HTTPS 주소를 입력하세요. 예: https://github.com/내계정/pet-diary.git}"
+GITHUB_TOKEN="${3:-}"
+
+STATIC_IP="${STATIC_IP:-}"
+GATEWAY="${GATEWAY:-}"
+
+if [ -n "$STATIC_IP" ] && [ -n "$GATEWAY" ]; then
+  NET_CONFIG="name=eth0,bridge=vmbr0,ip=${STATIC_IP},gw=${GATEWAY}"
+  echo "고정 IP 모드: ${STATIC_IP} (게이트웨이 ${GATEWAY})"
+else
+  NET_CONFIG="name=eth0,bridge=vmbr0,ip=dhcp"
+  echo "DHCP 모드: 공유기가 IP를 자동으로 할당합니다."
+fi
 
 TEMPLATE_STORE="local"
 TEMPLATE="debian-12-standard_12.7-1_amd64.tar.zst"
@@ -46,7 +58,7 @@ else
     --memory 1024 \
     --swap 512 \
     --rootfs "${ROOTFS_STORE}:8" \
-    --net0 "name=eth0,bridge=vmbr0,ip=${IP_CIDR},gw=${GATEWAY}" \
+    --net0 "$NET_CONFIG" \
     --features "nesting=1" \
     --unprivileged 1 \
     --onboot 1
@@ -60,6 +72,13 @@ for i in $(seq 1 15); do
   fi
   sleep 2
 done
+
+CONTAINER_IP=$(pct exec "$VMID" -- hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$CONTAINER_IP" ]; then
+  echo "!! IP를 아직 확인하지 못했습니다. 잠시 후 Proxmox 웹 UI에서 컨테이너 요약 화면의 IP를 직접 확인해주세요."
+else
+  echo "컨테이너에 할당된 IP: ${CONTAINER_IP}"
+fi
 
 echo "== 4. 컨테이너 안에 git 설치 =="
 pct exec "$VMID" -- bash -c "apt-get update -y && apt-get install -y git"
@@ -92,4 +111,11 @@ fi
 echo "  3) nano ${APP_DIR}/.env    (사용할 AI API 키와 SESSION_SECRET을 실제 값으로 입력)"
 echo "  4) bash ${APP_DIR}/scripts/install-lxc.sh"
 echo ""
-echo "설치가 끝나면 브라우저에서 http://${IP_CIDR%/*}:8000 으로 접속하세요."
+if [ -n "$CONTAINER_IP" ]; then
+  echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:8000 으로 접속하세요."
+else
+  echo "설치가 끝나면 브라우저에서 http://<컨테이너IP>:8000 으로 접속하세요. (IP는 Proxmox 웹 UI에서 확인)"
+fi
+echo ""
+echo "참고: DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있습니다. 계속 같은 주소로 쓰고 싶다면"
+echo "공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다."

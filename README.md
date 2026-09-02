@@ -86,7 +86,39 @@
 
 LXC 안에서 Docker를 중첩 실행(nesting)하는 대신, Python을 직접 설치해 systemd 서비스로 등록하는 방식입니다. 더 가볍고 재시작 시 자동으로 켜집니다.
 
-### B-1. LXC 컨테이너 새로 만들기 (Proxmox 호스트에서)
+설치 방법은 두 가지 중 편한 걸로 고르세요.
+
+### B-0. (추천) 한 번에 배포하기
+
+Proxmox 호스트 쉘에서 아래 한 줄이면 **컨테이너 생성(IP는 공유기 DHCP로 자동 할당) → git 설치 → 저장소 clone → .env 준비**까지 자동으로 끝납니다. 다른 커뮤니티 LXC 스크립트들처럼 IP를 직접 정하지 않아도 됩니다.
+
+```bash
+bash scripts/deploy-to-proxmox.sh <VMID> <GitHub저장소HTTPS주소> [GitHub PAT]
+
+# 예)
+bash scripts/deploy-to-proxmox.sh 210 \
+  https://github.com/내계정/pet-diary.git ghp_여기에토큰
+```
+- PAT(마지막 인자)를 생략하면 clone 단계만 건너뛰고, 컨테이너 안에서 직접 clone하라는 안내가 나옵니다.
+- 실행 중간에 컨테이너에 할당된 IP가 화면에 출력됩니다. (예: `컨테이너에 할당된 IP: 192.168.0.157`)
+- DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있어요. 계속 같은 주소를 쓰고 싶으면 공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다.
+- 굳이 고정 IP를 직접 지정하고 싶다면 환경변수로 넘기면 됩니다.
+  ```bash
+  STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
+  bash scripts/deploy-to-proxmox.sh 210 https://github.com/내계정/pet-diary.git ghp_토큰
+  ```
+- 자동 처리가 끝나면 아래 수동 단계만 남습니다.
+  ```bash
+  pct enter 210
+  nano /root/pet-diary/.env       # 사용할 AI API 키와 SESSION_SECRET 입력
+  bash /root/pet-diary/scripts/install-lxc.sh
+  ```
+
+이 스크립트가 편하지 않다면 아래 B-1 / B-2 단계별 방식을 그대로 따라 하셔도 결과는 동일합니다.
+
+> **보안 참고**: 명령어에 PAT를 직접 적으면 쉘 히스토리에 남습니다. 신경 쓰이면 PAT 없이 실행한 뒤(B-2 방식대로) 컨테이너 안에서 직접 clone하세요. 사용한 PAT는 https://github.com/settings/tokens 에서 언제든 삭제(Revoke)할 수 있습니다.
+
+### B-1. LXC 컨테이너만 따로 만들기 (Proxmox 호스트에서)
 
 이미 만들어둔 LXC가 있다면 이 단계는 건너뛰고 B-2로 이동하세요.
 
