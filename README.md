@@ -90,27 +90,27 @@ LXC 안에서 Docker를 중첩 실행(nesting)하는 대신, Python을 직접 �
 
 ### B-0. (추천) 한 번에 배포하기
 
-Proxmox 호스트 쉘에서 아래 한 줄이면 **컨테이너 생성(IP는 공유기 DHCP로 자동 할당) → git 설치 → 저장소 clone → .env 준비**까지 자동으로 끝납니다. 다른 커뮤니티 LXC 스크립트들처럼 IP를 직접 정하지 않아도 됩니다.
+Proxmox 호스트 쉘에서 아래 한 줄이면 **빈 VMID 자동 탐색 → 저장소 자동 선택 → 컨테이너 생성(IP는 공유기 DHCP로 자동 할당) → git 설치 → 저장소 clone → .env 준비**까지 자동으로 끝납니다. 회원님이 넣는 건 GitHub 저장소 주소(와 선택적으로 PAT)뿐입니다.
 
 ```bash
-bash scripts/deploy-to-proxmox.sh <VMID> <GitHub저장소HTTPS주소> [GitHub PAT]
+bash scripts/deploy-to-proxmox.sh <GitHub저장소HTTPS주소> [GitHub PAT]
 
 # 예)
-bash scripts/deploy-to-proxmox.sh 210 \
+bash scripts/deploy-to-proxmox.sh \
   https://github.com/내계정/pet-diary.git ghp_여기에토큰
 ```
+- VMID, 컨테이너를 만들 저장소(storage), IP 모두 Proxmox가 자동으로 찾아서 씁니다.
 - PAT(마지막 인자)를 생략하면 clone 단계만 건너뛰고, 컨테이너 안에서 직접 clone하라는 안내가 나옵니다.
-- 실행 중간에 컨테이너에 할당된 IP가 화면에 출력됩니다. (예: `컨테이너에 할당된 IP: 192.168.0.157`)
+- 실행 중간에 자동으로 정해진 VMID, 저장소, 할당된 IP가 화면에 출력됩니다.
 - DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있어요. 계속 같은 주소를 쓰고 싶으면 공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다.
-- 굳이 고정 IP를 직접 지정하고 싶다면 환경변수로 넘기면 됩니다.
+- 자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다.
   ```bash
-  STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
-  bash scripts/deploy-to-proxmox.sh 210 https://github.com/내계정/pet-diary.git ghp_토큰
+  STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
+  bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git ghp_토큰
   ```
-- 자동 처리가 끝나면 아래 수동 단계만 남습니다.
+- 자동 처리가 끝나면 아래 단계만 남습니다 (화면에 출력된 VMID로 바꿔서 입력하세요). `install-lxc.sh`를 실행하면 사용할 AI API 키를 그 자리에서 직접 입력받으니 `.env`를 따로 편집할 필요는 없습니다.
   ```bash
-  pct enter 210
-  nano /root/pet-diary/.env       # 사용할 AI API 키와 SESSION_SECRET 입력
+  pct enter <출력된VMID>
   bash /root/pet-diary/scripts/install-lxc.sh
   ```
 
@@ -124,11 +124,11 @@ bash scripts/deploy-to-proxmox.sh 210 \
 
 ```bash
 # Proxmox 호스트 쉘에서
-bash scripts/create-lxc-container.sh 210 192.168.0.210/24 192.168.0.1
+bash scripts/create-lxc-container.sh 210
+# 고정 IP나 저장소를 직접 쓰려면: STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 bash scripts/create-lxc-container.sh 210
 ```
 - `210` = 컨테이너 VMID (원하는 번호로 변경 가능)
-- `192.168.0.210/24` = 컨테이너에 부여할 고정 IP
-- `192.168.0.1` = 공유기/게이트웨이 IP
+- 저장소(storage)는 자동으로 감지된 곳을 사용합니다.
 
 ### B-2. 컨테이너 안에서 앱 설치하기
 
@@ -142,10 +142,10 @@ pct enter 210
 git clone https://github.com/내계정/pet-diary.git
 cd pet-diary
 # Username: 내계정 / Password: 위에서 만든 토큰 붙여넣기
-cp .env.example .env
-nano .env        # 사용할 AI들의 API 키와 SESSION_SECRET을 실제 값으로 수정
 bash scripts/install-lxc.sh
 ```
+
+`install-lxc.sh`를 실행하면 사용할 AI의 API 키를 화면에서 바로 입력받습니다. `.env`를 미리 만들거나 편집할 필요는 없습니다 (안 쓰는 AI는 Enter로 건너뛰면 됩니다). SESSION_SECRET(로그인 보안 키)도 자동으로 생성됩니다.
 
 스크립트가 파이썬 가상환경 생성, 패키지 설치, 전용 실행 계정 생성, systemd 서비스 등록까지 한 번에 처리합니다.
 

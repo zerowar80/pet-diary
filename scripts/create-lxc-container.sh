@@ -22,10 +22,25 @@ else
   NET_CONFIG="name=eth0,bridge=vmbr0,ip=dhcp"
 fi
 
-TEMPLATE_STORE="local"
 TEMPLATE="debian-12-standard_12.7-1_amd64.tar.zst"
-ROOTFS_STORE="local-lvm"
 HOSTNAME="pet-diary"
+
+TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+[ -z "$TEMPLATE_STORE" ] && TEMPLATE_STORE="local"
+
+ROOTFS_STORE="${STORAGE:-}"
+if [ -z "$ROOTFS_STORE" ]; then
+  ROOTFS_STORE=$(pvesm status --content rootdir 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+fi
+if [ -z "$ROOTFS_STORE" ]; then
+  ROOTFS_STORE=$(pvesm status 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+fi
+if [ -z "$ROOTFS_STORE" ]; then
+  echo "!! 사용 가능한 저장소를 찾지 못했습니다. STORAGE=이름 환경변수로 직접 지정해주세요."
+  pvesm status
+  exit 1
+fi
+echo "사용할 템플릿 저장소: ${TEMPLATE_STORE} / 컨테이너 저장소: ${ROOTFS_STORE}"
 
 echo "== 1. Debian 템플릿 다운로드 (이미 있으면 건너뜀) =="
 pveam update
@@ -59,5 +74,4 @@ echo "== 컨테이너 생성 완료 (VMID: $VMID) =="
 echo "다음 단계:"
 echo "  1) pct enter ${VMID}"
 echo "  2) git clone <회원님의 비공개 저장소 주소> pet-diary && cd pet-diary"
-echo "  3) cp .env.example .env && nano .env   (API 키 입력)"
-echo "  4) bash scripts/install-lxc.sh"
+echo "  3) bash scripts/install-lxc.sh   (실행 중 AI API 키를 화면에서 바로 입력받습니다)"
