@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ dog['name'] if dog else '앨범' }}의 일기{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/">&larr; 전체 앨범</a>
+
+  {% if not dog %}
+  <p class="empty-state">해당 반려견을 찾을 수 없어요.</p>
+  {% else %}
+  <h1>{{ dog['name'] }}의 일기</h1>
+  <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}</p>
+
+  <div class="timeline">
+    {% for entry in entries %}
+    <article class="entry-card">
+      <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
+      <div class="entry-body">
+        <p class="entry-date">{{ entry['created_at'] }}</p>
+        <p class="entry-text">{{ entry['diary_text'] }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

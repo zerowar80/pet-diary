@@ -1,0 +1,6 @@
+.env
+data/diary.db
+data/uploads/*
+!data/uploads/.gitkeep
+__pycache__/
+*.pyc

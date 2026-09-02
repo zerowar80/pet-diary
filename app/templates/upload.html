@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}사진 올리기{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <h1>사진 올리기</h1>
+  <p class="sub">사진을 올리면 AI가 상황을 살펴보고 짧은 일기를 대신 써드려요.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+    <label for="dog_name">이 아이 이름</label>
+    <input type="text" id="dog_name" name="dog_name" placeholder="우동이" required />
+
+    <label for="photo">사진</label>
+    <input type="file" id="photo" name="photo" accept="image/*" required />
+
+    <button type="submit">업로드하고 일기 생성</button>
+  </form>
+  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 같은 이름을 쓰면 그 아이의 앨범에 계속 쌓입니다.</p>
+</section>
+{% endblock %}

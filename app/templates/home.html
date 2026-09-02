@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}우리 아이들 - 사진 일기장{% endblock %}
+{% block content %}
+<section class="page">
+  <h1>우리 아이들</h1>
+
+  {% if dogs|length == 0 %}
+  <div class="empty-state">
+    <p>아직 등록된 반려견이 없어요.</p>
+    <a class="cta" href="/upload">첫 사진 올리기</a>
+  </div>
+  {% else %}
+  <div class="dog-grid">
+    {% for dog in dogs %}
+    <a class="dog-card" href="/dog/{{ dog['name'] }}">
+      <div class="dog-avatar">{{ dog['name'][:2] }}</div>
+      <div class="dog-info">
+        <p class="dog-name">{{ dog['name'] }}</p>
+        <p class="dog-meta">{{ dog['breed_guess'] or '견종 분석 중' }} · 사진 {{ dog['photo_count'] }}장</p>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
