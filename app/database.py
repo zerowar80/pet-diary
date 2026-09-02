@@ -45,11 +45,18 @@ def init_db():
             photo_path TEXT NOT NULL,
             diary_text TEXT,
             ai_provider TEXT,
+            weather_icon TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             FOREIGN KEY (dog_id) REFERENCES dogs (id) ON DELETE CASCADE
         )
         """
     )
+    # 기존에 만들어둔 DB(weather_icon 컬럼이 없는 이전 버전)를 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE entries ADD COLUMN weather_icon TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
     conn.commit()
     conn.close()
 
@@ -157,11 +164,11 @@ def delete_dog(user_id: int, dog_id: int):
 
 # ---------- entries ----------
 
-def add_entry(dog_id: int, photo_path: str, diary_text: str, ai_provider: str):
+def add_entry(dog_id: int, photo_path: str, diary_text: str, ai_provider: str, weather_icon: str | None = None):
     conn = get_conn()
     conn.execute(
-        "INSERT INTO entries (dog_id, photo_path, diary_text, ai_provider) VALUES (?, ?, ?, ?)",
-        (dog_id, photo_path, diary_text, ai_provider),
+        "INSERT INTO entries (dog_id, photo_path, diary_text, ai_provider, weather_icon) VALUES (?, ?, ?, ?, ?)",
+        (dog_id, photo_path, diary_text, ai_provider, weather_icon),
     )
     conn.commit()
     conn.close()

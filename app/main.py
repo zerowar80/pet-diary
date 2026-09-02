@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import ai_providers, auth, database
+from . import ai_providers, auth, database, weather
 
 load_dotenv()
 
@@ -197,6 +197,7 @@ async def upload_photo(
     dog_id = None
     success_count = 0
     fail_count = 0
+    weather_icon = weather.get_current_weather_emoji()
 
     for photo in photos:
         ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
@@ -215,7 +216,7 @@ async def upload_photo(
 
         dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
         relative_path = f"{user['id']}/{dog_name}/{saved_name}"
-        database.add_entry(dog_id, relative_path, diary_text, ai_provider)
+        database.add_entry(dog_id, relative_path, diary_text, ai_provider, weather_icon)
 
     if dog_id is None:
         return RedirectResponse(url="/upload", status_code=303)

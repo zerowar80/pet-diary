@@ -29,15 +29,26 @@
   <div class="timeline">
     {% for entry in entries %}
     <article class="entry-card">
-      <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
-      <div class="entry-body">
-        <div class="entry-meta-row">
-          <p class="entry-date">{{ entry['created_at'] }} · {{ AI_PROVIDERS.get(entry['ai_provider'], {}).get('label', entry['ai_provider']) }}</p>
-          <form action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
-            <button type="submit" class="entry-delete-btn">삭제</button>
-          </form>
+      <div class="entry-topline">
+        <div class="entry-date-box">
+          <span class="label-tag">DATE.</span>
+          <span class="date-value">{{ entry['created_at'][:10] }}</span>
         </div>
+        <div class="entry-weather-box">{{ entry['weather_icon'] if entry['weather_icon'] else ['☀️', '⛅', '🌧️', '❄️'][entry['id'] % 4] }}</div>
+      </div>
+      <div class="entry-title-row">
+        <span class="label-tag">TITLE.</span>
+        <span class="title-value">{{ dog['name'] }}의 하루</span>
+        <form class="entry-delete-form" action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
+          <button type="submit" class="entry-delete-btn" aria-label="일기 삭제">✕</button>
+        </form>
+      </div>
+      <div class="entry-photo-box">
+        <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
+      </div>
+      <div class="entry-diary-box">
         <p class="entry-text">{{ entry['diary_text'] }}</p>
+        <p class="entry-provider-tag">{{ AI_PROVIDERS.get(entry['ai_provider'], {}).get('label', entry['ai_provider']) }}</p>
       </div>
     </article>
     {% endfor %}
