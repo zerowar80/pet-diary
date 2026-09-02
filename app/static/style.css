@@ -183,6 +183,15 @@ h1 { font-size: 32px; }
   font-size: 14px;
 }
 
+.notice {
+  color: var(--moss);
+  background: rgba(107,122,79,0.14);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
 .back-link {
   color: var(--cream);
   opacity: 0.7;

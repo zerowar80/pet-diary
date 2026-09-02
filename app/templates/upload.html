@@ -18,8 +18,8 @@
       {% endfor %}
     </datalist>
 
-    <label for="photo">사진</label>
-    <input type="file" id="photo" name="photo" accept="image/*" required />
+    <label for="photo">사진 (여러 장 선택 가능)</label>
+    <input type="file" id="photo" name="photos" accept="image/*" multiple required />
 
     <label for="ai_provider">일기를 써줄 AI</label>
     <select id="ai_provider" name="ai_provider">
@@ -30,6 +30,6 @@
 
     <button type="submit">업로드하고 일기 생성</button>
   </form>
-  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요.</p>
+  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요. 사진을 여러 장 고르면 장마다 각각 일기가 하나씩 생성됩니다.</p>
 </section>
 {% endblock %}

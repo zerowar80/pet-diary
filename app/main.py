@@ -98,6 +98,49 @@ def logout(request: Request):
     return RedirectResponse(url="/login")
 
 
+@app.get("/account")
+def account_form(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    return templates.TemplateResponse(
+        "account.html", {"request": request, "user": user, "error": None, "success": False}
+    )
+
+
+@app.post("/account")
+def account_submit(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    new_password_confirm: str = Form(...),
+):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+
+    if not auth.verify_password(current_password, user["password_hash"]):
+        return templates.TemplateResponse(
+            "account.html",
+            {"request": request, "user": user, "error": "현재 비밀번호가 올바르지 않아요.", "success": False},
+        )
+    if len(new_password) < 4:
+        return templates.TemplateResponse(
+            "account.html",
+            {"request": request, "user": user, "error": "새 비밀번호는 4자 이상 입력해주세요.", "success": False},
+        )
+    if new_password != new_password_confirm:
+        return templates.TemplateResponse(
+            "account.html",
+            {"request": request, "user": user, "error": "새 비밀번호가 서로 일치하지 않아요.", "success": False},
+        )
+
+    database.update_user_password(user["id"], auth.hash_password(new_password))
+    return templates.TemplateResponse(
+        "account.html", {"request": request, "user": user, "error": None, "success": True}
+    )
+
+
 # ---------- 홈 ----------
 
 @app.get("/")
@@ -129,7 +172,7 @@ async def upload_photo(
     request: Request,
     dog_name: str = Form(...),
     ai_provider: str = Form(...),
-    photo: UploadFile = None,
+    photos: list[UploadFile] = None,
 ):
     user = require_login(request)
     if not user:
@@ -137,7 +180,8 @@ async def upload_photo(
 
     dog_name = dog_name.strip()
     dogs = database.list_dogs(user["id"])
-    if not dog_name or photo is None:
+    photos = [p for p in (photos or []) if p and p.filename]
+    if not dog_name or not photos:
         return templates.TemplateResponse(
             "upload.html",
             {"request": request, "user": user, "dogs": dogs, "error": "반려견 이름과 사진을 모두 입력해주세요."},
@@ -146,36 +190,55 @@ async def upload_photo(
     user_folder = UPLOAD_DIR / str(user["id"]) / dog_name
     user_folder.mkdir(parents=True, exist_ok=True)
 
-    ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
-    saved_name = f"{uuid.uuid4().hex}{ext}"
-    saved_path = user_folder / saved_name
+    dog_id = None
+    success_count = 0
+    fail_count = 0
 
-    with saved_path.open("wb") as f:
-        shutil.copyfileobj(photo.file, f)
+    for photo in photos:
+        ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
+        saved_name = f"{uuid.uuid4().hex}{ext}"
+        saved_path = user_folder / saved_name
 
-    try:
-        breed_guess, diary_text = ai_providers.generate_diary_entry(str(saved_path), dog_name, ai_provider)
-    except Exception as exc:  # noqa: BLE001
-        breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
+        with saved_path.open("wb") as f:
+            shutil.copyfileobj(photo.file, f)
 
-    dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
-    relative_path = f"{user['id']}/{dog_name}/{saved_name}"
-    database.add_entry(dog_id, relative_path, diary_text, ai_provider)
+        try:
+            breed_guess, diary_text = ai_providers.generate_diary_entry(str(saved_path), dog_name, ai_provider)
+            success_count += 1
+        except Exception as exc:  # noqa: BLE001
+            breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
+            fail_count += 1
 
-    return RedirectResponse(url=f"/dog/{dog_id}", status_code=303)
+        dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
+        relative_path = f"{user['id']}/{dog_name}/{saved_name}"
+        database.add_entry(dog_id, relative_path, diary_text, ai_provider)
+
+    if dog_id is None:
+        return RedirectResponse(url="/upload", status_code=303)
+
+    redirect_url = f"/dog/{dog_id}?uploaded={success_count}&failed={fail_count}"
+    return RedirectResponse(url=redirect_url, status_code=303)
 
 
 # ---------- 반려견 상세 / 수정 / 삭제 ----------
 
 @app.get("/dog/{dog_id}")
-def dog_album(request: Request, dog_id: int):
+def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0):
     user = require_login(request)
     if not user:
         return RedirectResponse(url="/login")
     dog = database.get_dog(user["id"], dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
     return templates.TemplateResponse(
-        "album.html", {"request": request, "user": user, "dog": dog, "entries": entries}
+        "album.html",
+        {
+            "request": request,
+            "user": user,
+            "dog": dog,
+            "entries": entries,
+            "uploaded": uploaded,
+            "failed": failed,
+        },
     )
 
 

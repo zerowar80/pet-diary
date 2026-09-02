@@ -15,6 +15,10 @@
     <a class="edit-link" href="/dog/{{ dog['id'] }}/edit">정보 수정 / 삭제</a>
   </div>
 
+  {% if uploaded and uploaded > 0 %}
+  <p class="notice">사진 {{ uploaded }}장의 일기가 생성됐어요.{% if failed and failed > 0 %} ({{ failed }}장은 AI 생성에 실패했어요){% endif %}</p>
+  {% endif %}
+
   {% if entries|length == 0 %}
   <div class="empty-state">
     <p>아직 올라온 사진이 없어요.</p>

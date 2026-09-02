@@ -82,6 +82,13 @@ def get_user_by_id(user_id: int):
     return row
 
 
+def update_user_password(user_id: int, password_hash: str):
+    conn = get_conn()
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+    conn.commit()
+    conn.close()
+
+
 # ---------- dogs ----------
 
 def get_or_create_dog(user_id: int, name: str, breed_guess: str | None = None) -> int:
