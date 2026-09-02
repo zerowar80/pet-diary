@@ -208,34 +208,122 @@ h1 { font-size: 32px; }
 }
 
 .entry-card {
-  background: var(--paper);
-  color: var(--paper-text);
-  border-radius: 16px;
+  background: #FFFDF8;
+  color: var(--umber);
+  border: 1.5px solid var(--umber);
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: 3px 4px 0 rgba(0,0,0,0.14);
 }
 
-.entry-card img {
+.timeline .entry-card:nth-child(odd) { transform: rotate(-0.35deg); }
+.timeline .entry-card:nth-child(even) { transform: rotate(0.3deg); }
+
+.entry-topline {
+  display: flex;
+  border-bottom: 1.5px solid var(--umber);
+}
+
+.entry-date-box {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 14px;
+  border-right: 1.5px solid var(--umber);
+}
+
+.entry-weather-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 18px;
+}
+
+.label-tag {
+  font-family: 'Gaegu', cursive;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--umber);
+  opacity: 0.55;
+  letter-spacing: 0.3px;
+}
+
+.date-value {
+  font-family: 'Gaegu', cursive;
+  font-size: 15px;
+}
+
+.entry-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1.5px solid var(--umber);
+}
+
+.title-value {
+  font-family: 'Gaegu', cursive;
+  font-size: 18px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.entry-delete-form {
+  margin: 0;
+}
+
+.entry-delete-btn {
+  background: none;
+  border: none;
+  color: var(--umber);
+  opacity: 0.35;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.entry-delete-btn:hover {
+  opacity: 0.9;
+  color: var(--danger);
+}
+
+.entry-photo-box {
+  border-bottom: 1.5px solid var(--umber);
+  background: #fff;
+}
+
+.entry-photo-box img {
   width: 100%;
-  max-height: 360px;
+  max-height: 320px;
   object-fit: cover;
   display: block;
 }
 
-.entry-body {
-  padding: 16px 18px;
-}
-
-.entry-date {
-  font-size: 12px;
-  color: var(--moss);
-  margin: 0 0 6px;
+.entry-diary-box {
+  padding: 18px 16px 16px;
+  background-color: #FFFDF8;
+  background-image:
+    linear-gradient(rgba(43,33,26,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43,33,26,0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
 .entry-text {
-  font-family: 'Fraunces', serif;
+  font-family: 'Gaegu', cursive;
   font-size: 17px;
-  line-height: 1.6;
+  line-height: 1.9;
+  color: var(--umber);
   margin: 0;
+}
+
+.entry-provider-tag {
+  margin: 12px 0 0;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 11px;
+  opacity: 0.4;
 }
 
 .topbar-right {
@@ -325,23 +413,6 @@ h1 { font-size: 32px; }
   margin-top: 6px;
 }
 
-.entry-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-
-.entry-delete-btn {
-  background: none;
-  border: none;
-  color: var(--danger);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 2px 6px;
-}
-
 .app-footer {
   text-align: center;
   color: var(--cream);
@@ -398,6 +469,24 @@ h1 { font-size: 32px; }
 
   .entry-card img {
     max-height: 280px;
+  }
+
+  .entry-date-box,
+  .entry-weather-box,
+  .entry-title-row {
+    padding: 8px 10px;
+  }
+
+  .title-value {
+    font-size: 16px;
+  }
+
+  .entry-text {
+    font-size: 16px;
+  }
+
+  .entry-photo-box img {
+    max-height: 240px;
   }
 
   .dog-edit-icon {
