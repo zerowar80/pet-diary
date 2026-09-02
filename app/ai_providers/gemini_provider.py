@@ -11,7 +11,7 @@ def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY가 .env에 설정되어 있지 않습니다.")
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(model_name)
 
