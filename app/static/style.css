@@ -341,3 +341,11 @@ h1 { font-size: 32px; }
   cursor: pointer;
   padding: 2px 6px;
 }
+
+.app-footer {
+  text-align: center;
+  color: var(--cream);
+  opacity: 0.35;
+  font-size: 12px;
+  padding: 24px 0 32px;
+}

@@ -18,6 +18,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+VERSION_FILE = BASE_DIR / "VERSION"
+APP_VERSION = VERSION_FILE.read_text().strip() if VERSION_FILE.exists() else "0.0.0"
+
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-only-change-me-in-.env")
 
 app = FastAPI(title="반려견 AI 사진 일기장")
@@ -25,6 +28,7 @@ app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax"
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 templates.env.globals["AI_PROVIDERS"] = ai_providers.PROVIDERS
+templates.env.globals["APP_VERSION"] = APP_VERSION
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")

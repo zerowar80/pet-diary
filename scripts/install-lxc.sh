@@ -2,6 +2,7 @@
 #
 # LXC(또는 일반 Debian/Ubuntu 서버) 안에서 실행하는 설치 스크립트입니다.
 # Docker 없이 systemd 서비스로 직접 실행되도록 구성합니다.
+# 실행 중 사용할 AI의 API 키를 화면에서 직접 입력받습니다 (.env를 미리 편집할 필요 없음).
 #
 # 사용법 (LXC 컨테이너 안에서, root 권한으로):
 #   bash scripts/install-lxc.sh
@@ -22,32 +23,83 @@ if ! id "$SERVICE_USER" &>/dev/null; then
   useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin "$SERVICE_USER"
 fi
 
-echo "== 3. .env 파일 확인 =="
+echo "== 3. 환경 설정(.env) 입력 =="
 if [ ! -f "$APP_DIR/.env" ]; then
   if [ -f "$APP_DIR/.env.example" ]; then
     cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  else
+    touch "$APP_DIR/.env"
   fi
+fi
+
+is_placeholder() {
+  local value="$1"
+  [ -z "$value" ] && return 0
+  case "$value" in
+    *"여기에"*) return 0 ;;
+  esac
+  return 1
+}
+
+get_env_value() {
+  grep "^${1}=" "$APP_DIR/.env" 2>/dev/null | head -n1 | cut -d '=' -f2-
+}
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local escaped
+  escaped=$(printf '%s' "$value" | sed -e 's/[\/&]/\\&/g')
+  if grep -q "^${key}=" "$APP_DIR/.env" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${escaped}|" "$APP_DIR/.env"
+  else
+    echo "${key}=${value}" >> "$APP_DIR/.env"
+  fi
+}
+
+prompt_if_needed() {
+  local key="$1"
+  local label="$2"
+  local current
+  current=$(get_env_value "$key")
+  if is_placeholder "$current"; then
+    read -r -p "${label} (사용 안 하시면 그냥 Enter): " input
+    if [ -n "$input" ]; then
+      set_env_value "$key" "$input"
+    fi
+  else
+    echo "${label}: 이미 입력되어 있어 건너뜁니다."
+  fi
+}
+
+echo ""
+echo "사용할 AI의 API 키를 입력해주세요. 최소 하나는 입력해야 합니다."
+echo "안 쓰는 AI는 그냥 Enter를 눌러 건너뛰면 됩니다."
+echo ""
+prompt_if_needed "ANTHROPIC_API_KEY" "Claude (Anthropic) API 키"
+prompt_if_needed "GOOGLE_API_KEY"    "Gemini (Google) API 키"
+prompt_if_needed "OPENAI_API_KEY"    "ChatGPT (OpenAI) API 키"
+
+CURRENT_SECRET=$(get_env_value "SESSION_SECRET")
+if is_placeholder "$CURRENT_SECRET"; then
+  NEW_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '\n=+/')
+  set_env_value "SESSION_SECRET" "$NEW_SECRET"
   echo ""
-  echo "!! $APP_DIR/.env 파일을 열어 최소 한 AI의 API 키와 SESSION_SECRET을 입력한 뒤 이 스크립트를 다시 실행하세요."
-  echo "   예) nano $APP_DIR/.env"
-  exit 1
+  echo "SESSION_SECRET(로그인 보안 키)은 자동으로 생성했습니다."
 fi
 
 HAS_ANY_KEY=false
 for key_line in "ANTHROPIC_API_KEY" "GOOGLE_API_KEY" "OPENAI_API_KEY"; do
-  value=$(grep "^${key_line}=" "$APP_DIR/.env" | cut -d '=' -f2- | tr -d '[:space:]')
-  if [ -n "$value" ] && [[ "$value" != *"여기에"* ]]; then
+  value=$(get_env_value "$key_line" | tr -d '[:space:]')
+  if [ -n "$value" ] && ! is_placeholder "$value"; then
     HAS_ANY_KEY=true
   fi
 done
 
 if [ "$HAS_ANY_KEY" = false ]; then
-  echo "!! .env 파일에 최소 한 곳(ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY)의 실제 API 키가 필요합니다."
-  exit 1
-fi
-
-if grep -q "SESSION_SECRET=여기에" "$APP_DIR/.env" 2>/dev/null; then
-  echo "!! .env 파일의 SESSION_SECRET 값이 아직 예시 그대로입니다. 무작위로 긴 문자열로 바꿔주세요."
+  echo ""
+  echo "!! 최소 한 곳의 AI API 키가 필요합니다. 스크립트를 다시 실행해서 입력해주세요:"
+  echo "   bash $0"
   exit 1
 fi
 
@@ -85,7 +137,7 @@ systemctl enable "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 
 echo ""
-echo "== 설치 완료 =="
+echo "== 설치 완료 (버전: $(cat "$APP_DIR/VERSION" 2>/dev/null || echo '알 수 없음')) =="
 echo "상태 확인:   systemctl status ${SERVICE_NAME}"
 echo "로그 확인:   journalctl -u ${SERVICE_NAME} -f"
 echo "접속 주소:   http://<이 LXC의 IP>:8000"
