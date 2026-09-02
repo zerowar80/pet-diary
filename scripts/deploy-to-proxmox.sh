@@ -137,9 +137,9 @@ echo "  1) pct enter ${VMID}"
 echo "  2) bash ${APP_DIR}/scripts/install-lxc.sh   (실행 중 AI API 키를 화면에서 바로 입력받습니다)"
 echo ""
 if [ -n "$CONTAINER_IP" ]; then
-  echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:8000 으로 접속하세요."
+  echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:<install-lxc.sh에서 정한 포트, 기본 8000> 으로 접속하세요."
 else
-  echo "설치가 끝나면 브라우저에서 http://<컨테이너IP>:8000 으로 접속하세요. (IP는 Proxmox 웹 UI에서 확인)"
+  echo "설치가 끝나면 브라우저에서 http://<컨테이너IP>:<install-lxc.sh에서 정한 포트, 기본 8000> 으로 접속하세요. (IP는 Proxmox 웹 UI에서 확인)"
 fi
 echo ""
 echo "참고: DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있습니다. 계속 같은 주소로 쓰고 싶다면"

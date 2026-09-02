@@ -42,7 +42,7 @@ is_placeholder() {
 }
 
 get_env_value() {
-  grep "^${1}=" "$APP_DIR/.env" 2>/dev/null | head -n1 | cut -d '=' -f2-
+  (grep "^${1}=" "$APP_DIR/.env" 2>/dev/null || true) | head -n1 | cut -d '=' -f2-
 }
 
 set_env_value() {
@@ -103,6 +103,25 @@ if [ "$HAS_ANY_KEY" = false ]; then
   exit 1
 fi
 
+echo ""
+echo "== 3-1. 접속 포트 설정 =="
+CURRENT_PORT=$(get_env_value "APP_PORT")
+if [[ "$CURRENT_PORT" =~ ^[0-9]+$ ]]; then
+  APP_PORT="$CURRENT_PORT"
+  echo "접속 포트: 이미 ${APP_PORT}로 설정되어 있어 건너뜁니다."
+else
+  read -r -p "웹 접속 포트를 입력하세요 (기본값 8000, 그냥 Enter 시 8000 사용): " PORT_INPUT
+  if [ -z "$PORT_INPUT" ]; then
+    APP_PORT=8000
+  elif [[ "$PORT_INPUT" =~ ^[0-9]+$ ]] && [ "$PORT_INPUT" -ge 1 ] && [ "$PORT_INPUT" -le 65535 ]; then
+    APP_PORT="$PORT_INPUT"
+  else
+    echo "!! 올바르지 않은 포트 번호라 기본값 8000을 사용합니다."
+    APP_PORT=8000
+  fi
+  set_env_value "APP_PORT" "$APP_PORT"
+fi
+
 echo "== 4. 파이썬 가상환경 생성 및 패키지 설치 =="
 "$PYTHON_BIN" -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install --upgrade pip
@@ -124,7 +143,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${APP_DIR}/.env
-ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}
 Restart=on-failure
 RestartSec=3
 
@@ -140,4 +159,4 @@ echo ""
 echo "== 설치 완료 (버전: $(cat "$APP_DIR/VERSION" 2>/dev/null || echo '알 수 없음')) =="
 echo "상태 확인:   systemctl status ${SERVICE_NAME}"
 echo "로그 확인:   journalctl -u ${SERVICE_NAME} -f"
-echo "접속 주소:   http://<이 LXC의 IP>:8000"
+echo "접속 주소:   http://<이 LXC의 IP>:${APP_PORT}"
