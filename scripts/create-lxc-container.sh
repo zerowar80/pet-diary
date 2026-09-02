@@ -22,7 +22,6 @@ else
   NET_CONFIG="name=eth0,bridge=vmbr0,ip=dhcp"
 fi
 
-TEMPLATE="debian-12-standard_12.7-1_amd64.tar.zst"
 HOSTNAME="pet-diary"
 
 TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
@@ -42,8 +41,17 @@ if [ -z "$ROOTFS_STORE" ]; then
 fi
 echo "사용할 템플릿 저장소: ${TEMPLATE_STORE} / 컨테이너 저장소: ${ROOTFS_STORE}"
 
-echo "== 1. Debian 템플릿 다운로드 (이미 있으면 건너뜀) =="
+echo "== 1. Debian 템플릿 확인/다운로드 =="
 pveam update
+TEMPLATE=$(pveam list "$TEMPLATE_STORE" 2>/dev/null | awk -F'[/ ]+' '/debian-12-standard/ {print $2; exit}')
+if [ -z "$TEMPLATE" ]; then
+  TEMPLATE=$(pveam available --section system 2>/dev/null | awk '/debian-12-standard/ {print $2}' | sort -V | tail -n1)
+fi
+if [ -z "$TEMPLATE" ]; then
+  echo "!! debian-12-standard 템플릿을 찾지 못했습니다. 'pveam available'로 직접 확인해주세요."
+  exit 1
+fi
+echo "사용할 템플릿: ${TEMPLATE}"
 if ! pveam list "$TEMPLATE_STORE" | grep -q "$TEMPLATE"; then
   pveam download "$TEMPLATE_STORE" "$TEMPLATE"
 fi

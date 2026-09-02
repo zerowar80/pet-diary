@@ -66,13 +66,26 @@ fi
 echo "사용할 저장소: ${ROOTFS_STORE} (자동 선택됨, 다른 저장소를 쓰려면 STORAGE=이름 환경변수로 지정)"
 
 echo "== 2. 템플릿 저장소 자동 탐색 및 Debian 템플릿 확인/다운로드 =="
-TEMPLATE="debian-12-standard_12.7-1_amd64.tar.zst"
 TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
 if [ -z "$TEMPLATE_STORE" ]; then
   TEMPLATE_STORE="local"
 fi
 echo "사용할 템플릿 저장소: ${TEMPLATE_STORE}"
 pveam update
+
+# 이미 로컬에 받아둔 debian-12-standard 템플릿이 있으면 그걸 쓰고,
+# 없으면 미러 목록(pveam available)에서 가장 최신 버전 이름을 찾아 다운로드합니다.
+# (Proxmox가 배포하는 템플릿 버전은 주기적으로 바뀌므로 버전을 하드코딩하지 않습니다.)
+TEMPLATE=$(pveam list "$TEMPLATE_STORE" 2>/dev/null | awk -F'[/ ]+' '/debian-12-standard/ {print $2; exit}')
+if [ -z "$TEMPLATE" ]; then
+  TEMPLATE=$(pveam available --section system 2>/dev/null | awk '/debian-12-standard/ {print $2}' | sort -V | tail -n1)
+fi
+if [ -z "$TEMPLATE" ]; then
+  echo "!! debian-12-standard 템플릿을 찾지 못했습니다. 'pveam available'로 직접 확인해주세요."
+  exit 1
+fi
+echo "사용할 템플릿: ${TEMPLATE}"
+
 if ! pveam list "$TEMPLATE_STORE" | grep -q "$TEMPLATE"; then
   pveam download "$TEMPLATE_STORE" "$TEMPLATE"
 fi
