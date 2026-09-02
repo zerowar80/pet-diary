@@ -5,23 +5,28 @@
 # 2) 컨테이너를 만들 저장소(storage)도 자동으로 고르고 (IP도 DHCP로 자동 할당)
 # 3) 컨테이너 안에 git/필수 패키지를 설치하고
 # 4) 비공개 GitHub 저장소를 clone하고
-# 5) .env.example을 .env로 복사해둡니다.
+# 5) .env.example을 .env로 복사한 뒤
+# 6) 이어서 컨테이너 안으로 자동으로 들어가 scripts/install-lxc.sh까지 실행합니다.
+#    (그 안에서 AI API 키 / 접속 포트를 화면에서 바로 입력받습니다)
 #
 # 회원님이 넣어야 하는 건 GitHub 저장소 주소(와 선택적으로 PAT)뿐입니다.
-# API 키 입력과 최종 설치(scripts/install-lxc.sh 실행)만 컨테이너 안에서 직접 하면 됩니다.
 #
-# 사용법 (Proxmox 호스트 쉘에서):
+# 사용법 (Proxmox 호스트 쉘에서, 원격 스크립트를 바로 실행할 때):
+#   bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
+#     https://github.com/내계정/pet-diary.git [GitHub PAT]
+#
+#   ※ "curl ... | bash -s --" 형태(파이프)로 실행하면 뒤이어 나오는 AI 키 입력 등
+#      키보드 입력을 받을 수 없습니다. 반드시 위처럼 "bash <(curl ...)" 형태로 실행하세요.
+#
+#   이미 파일을 다운로드해서 로컬에 갖고 있다면 그냥:
 #   bash deploy-to-proxmox.sh <GitHub저장소HTTPS주소> [GitHub PAT]
 #
-#   예) bash deploy-to-proxmox.sh \
-#         https://github.com/내계정/pet-diary.git ghp_xxx여기에토큰
-#
 #   GitHub PAT는 저장소가 비공개일 때만 필요합니다. 저장소를 공개(Public)로 바꾸면 PAT 없이
-#   bash deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git 만으로도 clone까지 자동으로 됩니다.
+#   두 번째 인자를 생략해도 clone까지 자동으로 됩니다.
 #
 #   자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다 (전부 선택 사항):
 #   STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
-#     bash deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git ghp_토큰
+#     bash <(curl -fsSL ...) https://github.com/내계정/pet-diary.git ghp_토큰
 #
 set -euo pipefail
 
@@ -145,14 +150,31 @@ pct exec "$VMID" -- bash -c "
 
 echo ""
 echo "== 여기까지 자동 처리 완료 (VMID: $VMID, 저장소: $ROOTFS_STORE) =="
-echo "남은 수동 단계:"
-echo "  1) pct enter ${VMID}"
-echo "  2) bash ${APP_DIR}/scripts/install-lxc.sh   (실행 중 AI API 키를 화면에서 바로 입력받습니다)"
+
+if pct exec "$VMID" -- test -f "${APP_DIR}/scripts/install-lxc.sh" 2>/dev/null; then
+  echo ""
+  echo "이어서 컨테이너 안으로 들어가 설치를 계속 진행합니다 (AI API 키 / 접속 포트를 지금 바로 입력받습니다)."
+  echo ""
+  if pct exec "$VMID" -- bash "${APP_DIR}/scripts/install-lxc.sh"; then
+    :
+  else
+    echo ""
+    echo "!! install-lxc.sh 실행 중 문제가 있었습니다. 아래 명령어로 컨테이너에 직접 들어가 다시 실행해주세요:"
+    echo "  pct enter ${VMID}"
+    echo "  bash ${APP_DIR}/scripts/install-lxc.sh"
+  fi
+else
+  echo "저장소 clone이 완료되지 않아 자동으로 이어서 진행할 수 없습니다. 아래 단계를 직접 진행해주세요:"
+  echo "  1) pct enter ${VMID}"
+  echo "  2) git clone ${REPO_URL} ${APP_DIR}"
+  echo "  3) bash ${APP_DIR}/scripts/install-lxc.sh"
+fi
+
 echo ""
 if [ -n "$CONTAINER_IP" ]; then
-  echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:<install-lxc.sh에서 정한 포트, 기본 8000> 으로 접속하세요."
+  echo "설치가 끝나면 브라우저에서 http://${CONTAINER_IP}:<방금 정한 포트, 기본 8000> 으로 접속하세요."
 else
-  echo "설치가 끝나면 브라우저에서 http://<컨테이너IP>:<install-lxc.sh에서 정한 포트, 기본 8000> 으로 접속하세요. (IP는 Proxmox 웹 UI에서 확인)"
+  echo "설치가 끝나면 브라우저에서 http://<컨테이너IP>:<방금 정한 포트, 기본 8000> 으로 접속하세요. (IP는 Proxmox 웹 UI에서 확인)"
 fi
 echo ""
 echo "참고: DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있습니다. 계속 같은 주소로 쓰고 싶다면"

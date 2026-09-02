@@ -90,27 +90,39 @@ LXC 안에서 Docker를 중첩 실행(nesting)하는 대신, Python을 직접 �
 
 ### B-0. (추천) 한 번에 배포하기
 
-Proxmox 호스트 쉘에서 아래 한 줄이면 **빈 VMID 자동 탐색 → 저장소 자동 선택 → 컨테이너 생성(IP는 공유기 DHCP로 자동 할당) → git 설치 → 저장소 clone → .env 준비**까지 자동으로 끝납니다. 회원님이 넣는 건 GitHub 저장소 주소(와 선택적으로 PAT)뿐입니다.
+Proxmox 호스트 쉘에서 아래 한 줄이면 **빈 VMID 자동 탐색 → 저장소 자동 선택 → 컨테이너 생성(IP는 공유기 DHCP로 자동 할당) → git 설치 → 저장소 clone → .env 준비 → 컨테이너 안에서 최종 설치까지** 한 번에 이어서 진행됩니다. 진행 중간에 사용할 AI API 키와 접속 포트를 화면에서 바로 입력받으니, 그 외에는 손댈 게 없습니다.
+
+파일을 미리 받아둘 필요 없이 아래처럼 바로 실행하세요.
 
 ```bash
-bash scripts/deploy-to-proxmox.sh <GitHub저장소HTTPS주소> [GitHub PAT]
+bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
+  <GitHub저장소HTTPS주소> [GitHub PAT]
 
 # 예) 저장소가 공개(Public)라면 PAT 없이:
-bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git
+bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
+  https://github.com/내계정/pet-diary.git
 
 # 저장소가 비공개(Private)라면 PAT를 추가로:
-bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git ghp_여기에토큰
+bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
+  https://github.com/내계정/pet-diary.git ghp_여기에토큰
 ```
+
+> **주의**: `curl ... | bash -s --` 처럼 파이프(`|`)로 실행하면 뒤에 이어지는 AI 키 입력 등 키보드 입력을 받을 수 없습니다. 반드시 위처럼 `bash <(curl ...)` 형태(프로세스 치환)로 실행해주세요.
+
+이미 저장소를 clone해서 로컬에 파일이 있다면 그냥 `bash scripts/deploy-to-proxmox.sh <GitHub저장소HTTPS주소> [GitHub PAT]` 로 실행해도 됩니다.
+
 - VMID, 컨테이너를 만들 저장소(storage), IP 모두 Proxmox가 자동으로 찾아서 씁니다.
 - PAT는 저장소가 비공개일 때만 필요합니다. 공개 저장소라면 두 번째 인자를 생략하면 됩니다.
 - 실행 중간에 자동으로 정해진 VMID, 저장소, 할당된 IP가 화면에 출력됩니다.
+- 컨테이너 생성과 clone이 끝나면 스크립트가 **자동으로 컨테이너 안으로 들어가 `install-lxc.sh`까지 이어서 실행**합니다. 여기서 AI API 키(최소 하나 필수)와 접속 포트(그냥 Enter 시 8000)를 순서대로 입력하면 설치가 끝납니다.
 - DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있어요. 계속 같은 주소를 쓰고 싶으면 공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다.
 - 자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다.
   ```bash
   STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
-  bash scripts/deploy-to-proxmox.sh https://github.com/내계정/pet-diary.git ghp_토큰
+  bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
+    https://github.com/내계정/pet-diary.git ghp_토큰
   ```
-- 자동 처리가 끝나면 아래 단계만 남습니다 (화면에 출력된 VMID로 바꿔서 입력하세요). `install-lxc.sh`를 실행하면 사용할 AI API 키를 그 자리에서 직접 입력받으니 `.env`를 따로 편집할 필요는 없습니다.
+- 만약 자동 clone이 실패해서 이어서 진행이 안 됐다면, 화면에 안내된 대로 아래 단계를 직접 진행하면 됩니다.
   ```bash
   pct enter <출력된VMID>
   bash /root/pet-diary/scripts/install-lxc.sh
