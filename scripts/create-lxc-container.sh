@@ -7,8 +7,8 @@
 #   bash create-lxc-container.sh <VMID>
 #   예) bash create-lxc-container.sh 210
 #
-#   고정 IP를 쓰고 싶다면 환경변수로 넘기세요 (선택 사항):
-#   STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 bash create-lxc-container.sh 210
+#   고정 IP나 템플릿 저장소를 쓰고 싶다면 환경변수로 넘기세요 (선택 사항):
+#   STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 TEMPLATE_STORAGE=local STORAGE=local-lvm bash create-lxc-container.sh 210
 #
 set -euo pipefail
 
@@ -24,7 +24,10 @@ fi
 
 HOSTNAME="pet-diary"
 
-TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+TEMPLATE_STORE="${TEMPLATE_STORAGE:-}"
+if [ -z "$TEMPLATE_STORE" ]; then
+  TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+fi
 [ -z "$TEMPLATE_STORE" ] && TEMPLATE_STORE="local"
 
 ROOTFS_STORE="${STORAGE:-}"

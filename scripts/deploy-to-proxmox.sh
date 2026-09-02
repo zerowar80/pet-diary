@@ -25,7 +25,7 @@
 #   두 번째 인자를 생략해도 clone까지 자동으로 됩니다.
 #
 #   자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다 (전부 선택 사항):
-#   STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
+#   STORAGE=local-lvm TEMPLATE_STORAGE=local STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
 #     bash <(curl -fsSL ...) https://github.com/내계정/pet-diary.git ghp_토큰
 #
 set -euo pipefail
@@ -36,6 +36,7 @@ GITHUB_TOKEN="${2:-}"
 STATIC_IP="${STATIC_IP:-}"
 GATEWAY="${GATEWAY:-}"
 STORAGE="${STORAGE:-}"
+TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-}"
 
 if [ -n "$STATIC_IP" ] && [ -n "$GATEWAY" ]; then
   NET_CONFIG="name=eth0,bridge=vmbr0,ip=${STATIC_IP},gw=${GATEWAY}"
@@ -71,11 +72,14 @@ fi
 echo "사용할 저장소: ${ROOTFS_STORE} (자동 선택됨, 다른 저장소를 쓰려면 STORAGE=이름 환경변수로 지정)"
 
 echo "== 2. 템플릿 저장소 자동 탐색 및 Debian 템플릿 확인/다운로드 =="
-TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+TEMPLATE_STORE="$TEMPLATE_STORAGE"
+if [ -z "$TEMPLATE_STORE" ]; then
+  TEMPLATE_STORE=$(pvesm status --content vztmpl 2>/dev/null | awk 'NR>1 && $3=="active" {print $1; exit}')
+fi
 if [ -z "$TEMPLATE_STORE" ]; then
   TEMPLATE_STORE="local"
 fi
-echo "사용할 템플릿 저장소: ${TEMPLATE_STORE}"
+echo "사용할 템플릿 저장소: ${TEMPLATE_STORE} (다른 저장소를 쓰려면 TEMPLATE_STORAGE=이름 환경변수로 지정)"
 pveam update
 
 # 이미 로컬에 받아둔 debian-12-standard 템플릿이 있으면 그걸 쓰고,

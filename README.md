@@ -118,7 +118,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scr
 - DHCP로 받은 IP는 공유기 재시작 등으로 바뀔 수 있어요. 계속 같은 주소를 쓰고 싶으면 공유기 관리화면에서 이 컨테이너의 MAC 주소를 고정 IP로 예약(DHCP reservation)해두는 걸 추천합니다.
 - 자동으로 고른 값이 마음에 안 들면 환경변수로 직접 지정할 수 있습니다.
   ```bash
-  STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
+  STORAGE=local-lvm TEMPLATE_STORAGE=local STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 \
   bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scripts/deploy-to-proxmox.sh) \
     https://github.com/내계정/pet-diary.git ghp_토큰
   ```
@@ -139,7 +139,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/내계정/pet-diary/main/scr
 ```bash
 # Proxmox 호스트 쉘에서
 bash scripts/create-lxc-container.sh 210
-# 고정 IP나 저장소를 직접 쓰려면: STORAGE=local-lvm STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 bash scripts/create-lxc-container.sh 210
+# 고정 IP나 저장소를 직접 쓰려면: STORAGE=local-lvm TEMPLATE_STORAGE=local STATIC_IP=192.168.0.210/24 GATEWAY=192.168.0.1 bash scripts/create-lxc-container.sh 210
 ```
 - `210` = 컨테이너 VMID (원하는 번호로 변경 가능)
 - 저장소(storage)는 자동으로 감지된 곳을 사용합니다.
