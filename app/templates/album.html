@@ -7,15 +7,32 @@
   {% if not dog %}
   <p class="empty-state">해당 반려견을 찾을 수 없어요.</p>
   {% else %}
-  <h1>{{ dog['name'] }}의 일기</h1>
-  <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}</p>
+  <div class="album-header">
+    <div>
+      <h1>{{ dog['name'] }}의 일기</h1>
+      <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}</p>
+    </div>
+    <a class="edit-link" href="/dog/{{ dog['id'] }}/edit">정보 수정 / 삭제</a>
+  </div>
+
+  {% if entries|length == 0 %}
+  <div class="empty-state">
+    <p>아직 올라온 사진이 없어요.</p>
+    <a class="cta" href="/upload">사진 올리기</a>
+  </div>
+  {% endif %}
 
   <div class="timeline">
     {% for entry in entries %}
     <article class="entry-card">
       <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
       <div class="entry-body">
-        <p class="entry-date">{{ entry['created_at'] }}</p>
+        <div class="entry-meta-row">
+          <p class="entry-date">{{ entry['created_at'] }} · {{ AI_PROVIDERS.get(entry['ai_provider'], {}).get('label', entry['ai_provider']) }}</p>
+          <form action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
+            <button type="submit" class="entry-delete-btn">삭제</button>
+          </form>
+        </div>
         <p class="entry-text">{{ entry['diary_text'] }}</p>
       </div>
     </article>

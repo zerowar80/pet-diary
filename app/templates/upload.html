@@ -11,13 +11,25 @@
 
   <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
     <label for="dog_name">이 아이 이름</label>
-    <input type="text" id="dog_name" name="dog_name" placeholder="우동이" required />
+    <input type="text" id="dog_name" name="dog_name" list="dog-names" placeholder="예: 초코, 보리, 나비..." required />
+    <datalist id="dog-names">
+      {% for dog in dogs %}
+      <option value="{{ dog['name'] }}"></option>
+      {% endfor %}
+    </datalist>
 
     <label for="photo">사진</label>
     <input type="file" id="photo" name="photo" accept="image/*" required />
 
+    <label for="ai_provider">일기를 써줄 AI</label>
+    <select id="ai_provider" name="ai_provider">
+      {% for key, info in AI_PROVIDERS.items() %}
+      <option value="{{ key }}">{{ info['label'] }}</option>
+      {% endfor %}
+    </select>
+
     <button type="submit">업로드하고 일기 생성</button>
   </form>
-  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 같은 이름을 쓰면 그 아이의 앨범에 계속 쌓입니다.</p>
+  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요.</p>
 </section>
 {% endblock %}

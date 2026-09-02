@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ dog['name'] if dog else '반려견' }} 정보 수정{% endblock %}
+{% block content %}
+<section class="page narrow">
+  {% if dog %}
+  <a class="back-link" href="/dog/{{ dog['id'] }}">&larr; {{ dog['name'] }}의 일기로</a>
+  {% else %}
+  <a class="back-link" href="/">&larr; 전체 앨범</a>
+  {% endif %}
+
+  {% if not dog %}
+  <p class="empty-state">해당 반려견을 찾을 수 없어요.</p>
+  {% else %}
+  <h1>{{ dog['name'] }} 정보 수정</h1>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" action="/dog/{{ dog['id'] }}/edit" method="post">
+    <label for="name">이름</label>
+    <input type="text" id="name" name="name" value="{{ dog['name'] }}" required />
+
+    <label for="breed_guess">견종</label>
+    <input type="text" id="breed_guess" name="breed_guess" value="{{ dog['breed_guess'] or '' }}" placeholder="예: 말티푸, 믹스견" />
+
+    <button type="submit">저장하기</button>
+  </form>
+
+  <form action="/dog/{{ dog['id'] }}/delete" method="post" class="danger-zone" onsubmit="return confirm('{{ dog['name'] }}의 앨범과 사진을 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.');">
+    <button type="submit" class="danger-btn">이 반려견 앨범 삭제하기</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -228,3 +228,107 @@ h1 { font-size: 32px; }
   line-height: 1.6;
   margin: 0;
 }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.username {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.logout-link {
+  color: var(--cream);
+  opacity: 0.7;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.auth-page {
+  max-width: 380px;
+}
+
+.dog-card {
+  position: relative;
+  background: var(--paper);
+  border-radius: 16px;
+}
+
+.dog-card-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--paper-text);
+  text-decoration: none;
+  padding: 16px;
+}
+
+.dog-edit-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 11px;
+  color: var(--moss);
+  text-decoration: none;
+  background: rgba(107,122,79,0.12);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.danger-zone {
+  margin-top: 28px;
+  border-top: 1px solid var(--umber-light);
+  padding-top: 20px;
+}
+
+.danger-btn {
+  width: 100%;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.danger-btn:hover {
+  background: rgba(180,71,47,0.12);
+}
+
+.album-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.edit-link {
+  font-size: 13px;
+  color: var(--mustard);
+  text-decoration: none;
+  white-space: nowrap;
+  margin-top: 6px;
+}
+
+.entry-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.entry-delete-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+}

@@ -28,13 +28,26 @@ if [ ! -f "$APP_DIR/.env" ]; then
     cp "$APP_DIR/.env.example" "$APP_DIR/.env"
   fi
   echo ""
-  echo "!! $APP_DIR/.env 파일에 ANTHROPIC_API_KEY 를 입력한 뒤 이 스크립트를 다시 실행하세요."
+  echo "!! $APP_DIR/.env 파일을 열어 최소 한 AI의 API 키와 SESSION_SECRET을 입력한 뒤 이 스크립트를 다시 실행하세요."
   echo "   예) nano $APP_DIR/.env"
   exit 1
 fi
 
-if grep -q "sk-ant-여기에" "$APP_DIR/.env" 2>/dev/null; then
-  echo "!! .env 파일의 ANTHROPIC_API_KEY 값이 아직 예시 그대로입니다. 실제 키로 바꿔주세요."
+HAS_ANY_KEY=false
+for key_line in "ANTHROPIC_API_KEY" "GOOGLE_API_KEY" "OPENAI_API_KEY"; do
+  value=$(grep "^${key_line}=" "$APP_DIR/.env" | cut -d '=' -f2- | tr -d '[:space:]')
+  if [ -n "$value" ] && [[ "$value" != *"여기에"* ]]; then
+    HAS_ANY_KEY=true
+  fi
+done
+
+if [ "$HAS_ANY_KEY" = false ]; then
+  echo "!! .env 파일에 최소 한 곳(ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_API_KEY)의 실제 API 키가 필요합니다."
+  exit 1
+fi
+
+if grep -q "SESSION_SECRET=여기에" "$APP_DIR/.env" 2>/dev/null; then
+  echo "!! .env 파일의 SESSION_SECRET 값이 아직 예시 그대로입니다. 무작위로 긴 문자열로 바꿔주세요."
   exit 1
 fi
 

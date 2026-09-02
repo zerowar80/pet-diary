@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}회원가입{% endblock %}
+{% block content %}
+<section class="page narrow auth-page">
+  <h1>회원가입</h1>
+  <p class="sub">계정을 만들면 반려견 앨범을 나만 볼 수 있게 관리할 수 있어요.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" action="/signup" method="post">
+    <label for="username">아이디</label>
+    <input type="text" id="username" name="username" placeholder="mydogslover" required />
+
+    <label for="password">비밀번호</label>
+    <input type="password" id="password" name="password" placeholder="4자 이상" required />
+
+    <label for="password_confirm">비밀번호 확인</label>
+    <input type="password" id="password_confirm" name="password_confirm" required />
+
+    <button type="submit">가입하기</button>
+  </form>
+  <p class="hint">이미 계정이 있으신가요? <a href="/login">로그인</a></p>
+</section>
+{% endblock %}

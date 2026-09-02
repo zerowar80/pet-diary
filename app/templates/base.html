@@ -11,7 +11,13 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/">우리 아이 일기장</a>
-    <a class="new-entry-btn" href="/upload">사진 올리기</a>
+    {% if user %}
+    <div class="topbar-right">
+      <span class="username">{{ user['username'] }}님</span>
+      <a class="new-entry-btn" href="/upload">사진 올리기</a>
+      <a class="logout-link" href="/logout">로그아웃</a>
+    </div>
+    {% endif %}
   </header>
   <main>
     {% block content %}{% endblock %}
