@@ -59,7 +59,7 @@ h1 { font-size: 32px; }
 }
 
 .page.narrow {
-  max-width: 480px;
+  max-width: 560px;
 }
 
 .sub {
@@ -766,5 +766,45 @@ h1 { font-size: 32px; }
   .dog-edit-icon {
     font-size: 10px;
     padding: 3px 8px;
+  }
+}
+
+/* ---------- 넓은 화면(PC)에서는 일기 카드/사진을 조금 더 크게 ---------- */
+@media (min-width: 700px) {
+  .page.narrow:has(.book-viewport) {
+    max-width: 680px;
+  }
+
+  .book-viewport {
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .book-nav {
+    max-width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .entry-photo-box img,
+  .entry-photo-box video {
+    max-height: 420px;
+  }
+
+  .entry-photo-box.multi {
+    max-height: 380px;
+  }
+
+  .entry-photo-box.multi img,
+  .entry-photo-box.multi video {
+    height: 124px;
+  }
+
+  .entry-text {
+    font-size: 18px;
+  }
+
+  .title-value {
+    font-size: 19px;
   }
 }
