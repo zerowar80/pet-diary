@@ -32,11 +32,17 @@
     <a class="cta" href="/upload">사진 올리기</a>
     {% endif %}
   </div>
-  {% endif %}
+  {% else %}
 
-  <div class="timeline">
+  <div class="book-nav">
+    <button type="button" id="bookPrevBtn" class="book-nav-btn" aria-label="이전 장">‹</button>
+    <span id="bookPageIndicator" class="book-page-indicator">1 / {{ entries|length }}</span>
+    <button type="button" id="bookNextBtn" class="book-nav-btn" aria-label="다음 장">›</button>
+  </div>
+
+  <div class="book-viewport timeline" id="bookViewport">
     {% for entry in entries %}
-    <article class="entry-card">
+    <article class="entry-card{% if loop.first %} active{% endif %}">
       <div class="entry-topline">
         <div class="entry-date-box">
           <span class="label-tag">DATE.</span>
@@ -65,6 +71,58 @@
     </article>
     {% endfor %}
   </div>
+
+  <script>
+  (function () {
+    var viewport = document.getElementById('bookViewport');
+    var cards = viewport.querySelectorAll('.entry-card');
+    var total = cards.length;
+    var current = 0;
+    var indicator = document.getElementById('bookPageIndicator');
+    var prevBtn = document.getElementById('bookPrevBtn');
+    var nextBtn = document.getElementById('bookNextBtn');
+
+    function show(index) {
+      if (index < 0 || index >= total || index === current) return;
+      cards[current].classList.remove('active');
+      current = index;
+      cards[current].classList.add('active');
+      indicator.textContent = (current + 1) + ' / ' + total;
+      prevBtn.disabled = current === 0;
+      nextBtn.disabled = current === total - 1;
+      viewport.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    prevBtn.addEventListener('click', function () { show(current - 1); });
+    nextBtn.addEventListener('click', function () { show(current + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') show(current - 1);
+      if (e.key === 'ArrowRight') show(current + 1);
+    });
+
+    var touchStartX = null;
+    var touchStartY = null;
+    viewport.addEventListener('touchstart', function (e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    viewport.addEventListener('touchend', function (e) {
+      if (touchStartX === null) return;
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      var dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) { show(current + 1); } else { show(current - 1); }
+      }
+      touchStartX = null;
+      touchStartY = null;
+    });
+
+    prevBtn.disabled = true;
+    nextBtn.disabled = total <= 1;
+  })();
+  </script>
+  {% endif %}
   {% endif %}
 </section>
 {% endblock %}

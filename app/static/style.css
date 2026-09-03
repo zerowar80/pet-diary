@@ -207,6 +207,10 @@ h1 { font-size: 32px; }
   gap: 20px;
 }
 
+.book-viewport {
+  position: relative;
+}
+
 .entry-card {
   background: #FFFDF8;
   color: var(--umber);
@@ -214,10 +218,55 @@ h1 { font-size: 32px; }
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 3px 4px 0 rgba(0,0,0,0.14);
+  display: none;
+}
+
+.entry-card.active {
+  display: block;
+  animation: bookPageIn 0.22s ease;
+}
+
+@keyframes bookPageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .timeline .entry-card:nth-child(odd) { transform: rotate(-0.35deg); }
 .timeline .entry-card:nth-child(even) { transform: rotate(0.3deg); }
+
+.book-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.book-nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--mustard);
+  color: var(--umber);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.book-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.book-page-indicator {
+  font-size: 13px;
+  color: var(--cream);
+  opacity: 0.75;
+  min-width: 56px;
+  text-align: center;
+}
 
 .entry-topline {
   display: flex;
