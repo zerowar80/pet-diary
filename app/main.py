@@ -142,8 +142,21 @@ def account_form(request: Request):
     if not user:
         return RedirectResponse(url="/login")
     return templates.TemplateResponse(
-        "account.html", {"request": request, "user": user, "error": None, "success": False}
+        "account.html",
+        {
+            "request": request, "user": user, "error": None, "success": False,
+            "comment_notifications_enabled": database.get_comment_notifications_enabled(user["id"]),
+        },
     )
+
+
+@app.post("/account/notifications")
+def account_notifications(request: Request, comment_notifications: str = Form("")):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    database.set_comment_notifications_enabled(user["id"], comment_notifications == "1")
+    return RedirectResponse(url="/account", status_code=303)
 
 
 @app.post("/account")
@@ -156,26 +169,27 @@ def account_submit(
     user = require_login(request)
     if not user:
         return RedirectResponse(url="/login")
+    notif = database.get_comment_notifications_enabled(user["id"])
 
     if not auth.verify_password(current_password, user["password_hash"]):
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "현재 비밀번호가 올바르지 않아요.", "success": False},
+            {"request": request, "user": user, "error": "현재 비밀번호가 올바르지 않아요.", "success": False, "comment_notifications_enabled": notif},
         )
     if len(new_password) < 4:
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "새 비밀번호는 4자 이상 입력해주세요.", "success": False},
+            {"request": request, "user": user, "error": "새 비밀번호는 4자 이상 입력해주세요.", "success": False, "comment_notifications_enabled": notif},
         )
     if new_password != new_password_confirm:
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "새 비밀번호가 서로 일치하지 않아요.", "success": False},
+            {"request": request, "user": user, "error": "새 비밀번호가 서로 일치하지 않아요.", "success": False, "comment_notifications_enabled": notif},
         )
 
     database.update_user_password(user["id"], auth.hash_password(new_password))
     return templates.TemplateResponse(
-        "account.html", {"request": request, "user": user, "error": None, "success": True}
+        "account.html", {"request": request, "user": user, "error": None, "success": True, "comment_notifications_enabled": notif}
     )
 
 
@@ -503,8 +517,19 @@ def home(request: Request):
     if not user:
         return RedirectResponse(url="/login")
     dogs = database.list_dogs(user["id"])
+    dog_has_new_comment = {}
+    if database.get_comment_notifications_enabled(user["id"]):
+        for d in dogs:
+            latest = database.get_latest_comment_at(d["id"])
+            last_seen = d["comments_last_seen_at"]
+            dog_has_new_comment[d["id"]] = bool(latest) and (not last_seen or latest > last_seen)
     return templates.TemplateResponse(
-        "home.html", {"request": request, "dogs": dogs, "user": user, "latest_notice": database.get_latest_notice()}
+        "home.html",
+        {
+            "request": request, "dogs": dogs, "user": user,
+            "latest_notice": database.get_latest_notice(),
+            "dog_has_new_comment": dog_has_new_comment,
+        },
     )
 
 
@@ -781,6 +806,8 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
     if not user:
         return RedirectResponse(url="/login")
     dog = database.get_dog(user["id"], dog_id)
+    if dog:
+        database.update_dog_comments_seen(dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
     entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
     entry_reactions = {e["id"]: database.get_reaction_summary(e["id"]) for e in entries}

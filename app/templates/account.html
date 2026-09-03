@@ -25,5 +25,15 @@
 
     <button type="submit">비밀번호 변경</button>
   </form>
+
+  <h2 class="settings-section-title">알림</h2>
+  <p class="hint">내 반려견 일기에 댓글이 달리면, 홈 화면 해당 카드에 새 표시(N)가 뜨게 할지 정할 수 있어요.</p>
+  <form class="upload-form" action="/account/notifications" method="post">
+    <label class="checkbox-row" for="comment_notifications">
+      <input type="checkbox" id="comment_notifications" name="comment_notifications" value="1" {% if comment_notifications_enabled %}checked{% endif %} />
+      댓글 알림 사용
+    </label>
+    <button type="submit">저장</button>
+  </form>
 </section>
 {% endblock %}

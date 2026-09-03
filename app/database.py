@@ -145,6 +145,17 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
+    # 댓글 알림(강아지 카드 배지)을 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE dogs ADD COLUMN comments_last_seen_at TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN comment_notifications_enabled INTEGER DEFAULT 1")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
     # 기존에 만들어둔 DB(media_type 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entry_photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
@@ -273,7 +284,8 @@ def list_dogs(user_id: int):
     conn = get_conn()
     rows = conn.execute(
         """
-        SELECT dogs.id, dogs.name, dogs.breed_guess, dogs.profile_photo, COUNT(entries.id) as photo_count
+        SELECT dogs.id, dogs.name, dogs.breed_guess, dogs.profile_photo, dogs.comments_last_seen_at,
+               COUNT(entries.id) as photo_count
         FROM dogs
         LEFT JOIN entries ON entries.dog_id = dogs.id
         WHERE dogs.user_id = ?
@@ -665,5 +677,50 @@ def get_comment(comment_id: int):
 def delete_comment(comment_id: int):
     conn = get_conn()
     conn.execute("DELETE FROM entry_comments WHERE id = ?", (comment_id,))
+    conn.commit()
+    conn.close()
+
+
+# ---------- 댓글 알림 (강아지 카드 배지) ----------
+
+def get_latest_comment_at(dog_id: int):
+    conn = get_conn()
+    row = conn.execute(
+        """
+        SELECT MAX(ec.created_at) as latest
+        FROM entry_comments ec
+        JOIN entries e ON e.id = ec.entry_id
+        WHERE e.dog_id = ?
+        """,
+        (dog_id,),
+    ).fetchone()
+    conn.close()
+    return row["latest"] if row else None
+
+
+def update_dog_comments_seen(dog_id: int):
+    conn = get_conn()
+    conn.execute("UPDATE dogs SET comments_last_seen_at = datetime('now') WHERE id = ?", (dog_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_comment_notifications_enabled(user_id: int) -> bool:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT comment_notifications_enabled FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    if row is None or row["comment_notifications_enabled"] is None:
+        return True
+    return bool(row["comment_notifications_enabled"])
+
+
+def set_comment_notifications_enabled(user_id: int, enabled: bool):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE users SET comment_notifications_enabled = ? WHERE id = ?",
+        (1 if enabled else 0, user_id),
+    )
     conn.commit()
     conn.close()

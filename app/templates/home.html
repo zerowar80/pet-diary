@@ -32,6 +32,9 @@
   <div class="dog-grid">
     {% for dog in dogs %}
     <div class="dog-card">
+      {% if dog_has_new_comment and dog_has_new_comment.get(dog['id']) %}
+      <span class="new-badge dog-card-badge" aria-label="새 댓글">N</span>
+      {% endif %}
       <a class="dog-card-link" href="{{ '/guest/dog/' if guest else '/dog/' }}{{ dog['id'] }}">
         {% if dog['profile_photo'] %}
         <img class="dog-avatar dog-avatar-photo" src="/photos/{{ dog['profile_photo'] }}" alt="{{ dog['name'] }} 프로필" />
