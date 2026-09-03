@@ -1163,21 +1163,27 @@ def entry_download(request: Request, entry_id: int):
         return RedirectResponse(url="/", status_code=303)
 
     media = database.get_entry_photos(entry_id)
-    cover = media[0] if media else {"path": entry["photo_path"], "media_type": "photo"}
-    source_path = UPLOAD_DIR / cover["path"]
+    if not media:
+        media = [{"path": entry["photo_path"], "media_type": "photo"}]
 
     tmp_frame_path = None
-    if cover["media_type"] == "video":
+    if media[0]["media_type"] == "video":
+        # 동영상 일기는 대표 장면 한 컷만 추출해서 사용합니다.
+        video_abs_path = UPLOAD_DIR / media[0]["path"]
         tmp_frame_path = Path(tempfile.gettempdir()) / f"polaroid_frame_{uuid.uuid4().hex}.jpg"
-        if not video_utils.extract_thumbnail_frame(str(source_path), str(tmp_frame_path)):
-            tmp_frame_path = None
+        if video_utils.extract_thumbnail_frame(str(video_abs_path), str(tmp_frame_path)):
+            photo_paths = [tmp_frame_path]
         else:
-            source_path = tmp_frame_path
+            photo_paths = [video_abs_path]
+    else:
+        photo_paths = [UPLOAD_DIR / m["path"] for m in media if m["media_type"] != "video"]
+        if not photo_paths:
+            photo_paths = [UPLOAD_DIR / media[0]["path"]]
 
     output_path = Path(tempfile.gettempdir()) / f"polaroid_{uuid.uuid4().hex}.jpg"
     try:
         polaroid.create_polaroid(
-            source_path, dog["name"], entry["created_at"][:10], entry["diary_text"] or "", output_path
+            photo_paths, dog["name"], entry["created_at"][:10], entry["diary_text"] or "", output_path
         )
     finally:
         if tmp_frame_path:
