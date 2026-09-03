@@ -8,27 +8,7 @@
 - **A. Docker Compose** — 일반 서버/NAS에서 가장 간단
 - **B. Proxmox LXC (네이티브 설치)** — Docker 중첩 없이 LXC 안에서 바로 실행, 더 가볍습니다
 
----
 
-## 0. GitHub Desktop으로 비공개 저장소에 올리기
-
-이 폴더는 이미 로컬 git 저장소로 초기화되어 있어요(`git init` + 커밋 완료). GitHub Desktop만 있으면 명령어 없이 그대로 올릴 수 있습니다.
-
-1. GitHub Desktop을 엽니다.
-2. 왼쪽 위 **File(파일) → Add local repository(로컬 저장소 추가)** 를 클릭합니다.
-3. 압축을 푼 `pet-diary` 폴더를 선택하고 **Add repository(저장소 추가)** 를 누릅니다. (이미 git 저장소이므로 바로 인식됩니다.)
-4. 화면 위쪽에 **Publish repository(저장소 게시)** 버튼이 보입니다. 클릭합니다.
-5. 게시 창에서:
-   - Name: `pet-diary` (원하는 이름으로 변경 가능)
-   - **Keep this code private(비공개로 유지)** 체크박스를 반드시 체크합니다.
-   - **Publish repository** 버튼을 누릅니다.
-6. 완료되면 GitHub 웹사이트에 비공개 저장소가 생성됩니다.
-
-이후 코드를 수정했을 때는 GitHub Desktop 왼쪽에 변경된 파일 목록이 보이고, 아래 **Commit(커밋)** 버튼으로 커밋한 뒤 위쪽 **Push origin(푸시)** 버튼만 누르면 됩니다.
-
-> `.env` 파일과 `data/` 폴더(사진, DB)는 `.gitignore`에 포함되어 있어 GitHub Desktop의 변경 목록에도 나타나지 않습니다. API 키가 실수로 올라가는 일은 없습니다.
-
----
 
 ## A. Docker Compose로 설치하기
 
