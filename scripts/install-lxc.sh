@@ -16,7 +16,7 @@ PYTHON_BIN="python3"
 
 echo "== 1. 시스템 패키지 설치 =="
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip
+apt-get install -y python3 python3-venv python3-pip ffmpeg
 
 echo "== 2. 전용 실행 계정 생성 (이미 있으면 건너뜀) =="
 if ! id "$SERVICE_USER" &>/dev/null; then

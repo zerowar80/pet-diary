@@ -59,9 +59,13 @@
         </form>
         {% endif %}
       </div>
-      <div class="entry-photo-box{% if entry_photos.get(entry['id'])|length > 1 %} multi{% endif %}">
-        {% for photo_path in entry_photos.get(entry['id'], [entry['photo_path']]) %}
-        <img src="/photos/{{ photo_path }}" alt="{{ dog['name'] }} 사진" />
+      <div class="entry-photo-box{% if entry_photos.get(entry['id'], [])|length > 1 %} multi{% endif %}">
+        {% for media in entry_photos.get(entry['id'], [{'path': entry['photo_path'], 'media_type': 'photo'}]) %}
+        {% if media['media_type'] == 'video' %}
+        <video controls playsinline preload="metadata" src="/photos/{{ media['path'] }}"></video>
+        {% else %}
+        <img src="/photos/{{ media['path'] }}" alt="{{ dog['name'] }} 사진" />
+        {% endif %}
         {% endfor %}
       </div>
       <div class="entry-diary-box">

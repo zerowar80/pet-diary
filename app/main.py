@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import ai_providers, auth, database, settings, weather
+from . import ai_providers, auth, database, settings, video_utils, weather
 
 load_dotenv()
 
@@ -318,16 +318,22 @@ async def upload_photo(
     ai_provider: str = Form(...),
     auto_identify: str = Form(""),
     bundle_photos: str = Form(""),
+    media_mode: str = Form("photo"),
     photos: list[UploadFile] = None,
+    video: UploadFile = None,
 ):
     user = require_login(request)
     if not user:
         return RedirectResponse(url="/login")
 
     dog_name = dog_name.strip()
+    dogs = database.list_dogs(user["id"])
+
+    if media_mode == "video":
+        return await _upload_video(request, user, dogs, dog_name, ai_provider, video)
+
     auto_identify = auto_identify == "1"
     bundle_photos = bundle_photos == "1"
-    dogs = database.list_dogs(user["id"])
     photos = [p for p in (photos or []) if p and p.filename]
 
     if not photos:
@@ -439,6 +445,91 @@ async def upload_photo(
 
     redirect_url = f"/dog/{dog_id}?uploaded={success_count}&failed={fail_count}"
     return RedirectResponse(url=redirect_url, status_code=303)
+
+
+async def _upload_video(request: Request, user, dogs, dog_name: str, ai_provider: str, video: UploadFile | None):
+    """짧은 동영상(30초 이내) 한 개를 업로드해서 일기 하나를 만듭니다."""
+    MAX_VIDEO_SECONDS = 30
+    MAX_VIDEO_MB = 40
+
+    if not video or not video.filename:
+        return templates.TemplateResponse(
+            "upload.html",
+            {"request": request, "user": user, "dogs": dogs, "error": "동영상 파일을 선택해주세요."},
+        )
+    if not dog_name:
+        return templates.TemplateResponse(
+            "upload.html",
+            {"request": request, "user": user, "dogs": dogs, "error": "반려견 이름을 입력해주세요."},
+        )
+
+    tmp_dir = UPLOAD_DIR / str(user["id"]) / "_tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(video.filename or "video.mp4").suffix or ".mp4"
+    tmp_video_path = tmp_dir / f"{uuid.uuid4().hex}{ext}"
+    with tmp_video_path.open("wb") as f:
+        shutil.copyfileobj(video.file, f)
+
+    size_mb = tmp_video_path.stat().st_size / (1024 * 1024)
+    if size_mb > MAX_VIDEO_MB:
+        tmp_video_path.unlink(missing_ok=True)
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request, "user": user, "dogs": dogs,
+                "error": f"동영상 용량이 너무 커요 ({size_mb:.0f}MB). {MAX_VIDEO_MB}MB 이내로 올려주세요.",
+            },
+        )
+
+    duration = video_utils.get_duration_seconds(str(tmp_video_path))
+    if duration is not None and duration > MAX_VIDEO_SECONDS:
+        tmp_video_path.unlink(missing_ok=True)
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request, "user": user, "dogs": dogs,
+                "error": f"{MAX_VIDEO_SECONDS}초 이내 동영상만 업로드할 수 있어요. (지금 영상은 약 {duration:.0f}초예요)",
+            },
+        )
+
+    weather_icon = weather.get_current_weather_emoji()
+
+    if ai_provider == "gemini":
+        try:
+            breed_guess, diary_text = ai_providers.generate_diary_entry_video(str(tmp_video_path), dog_name, ai_provider)
+            success_count, fail_count = 1, 0
+        except Exception as exc:  # noqa: BLE001
+            breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
+            success_count, fail_count = 0, 1
+    else:
+        frame_path = tmp_dir / f"{uuid.uuid4().hex}_frame.jpg"
+        frame_ok = video_utils.extract_thumbnail_frame(str(tmp_video_path), str(frame_path))
+        if frame_ok:
+            try:
+                breed_guess, diary_text = ai_providers.generate_diary_entry(str(frame_path), dog_name, ai_provider)
+                success_count, fail_count = 1, 0
+            except Exception as exc:  # noqa: BLE001
+                breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
+                success_count, fail_count = 0, 1
+            frame_path.unlink(missing_ok=True)
+        else:
+            breed_guess, diary_text = None, (
+                "(동영상의 대표 장면을 추출하지 못해 일기를 쓰지 못했어요. "
+                "Gemini를 선택하면 영상을 직접 분석할 수 있어요.)"
+            )
+            success_count, fail_count = 0, 1
+
+    user_folder = UPLOAD_DIR / str(user["id"]) / dog_name
+    user_folder.mkdir(parents=True, exist_ok=True)
+    saved_name = f"{uuid.uuid4().hex}{ext}"
+    saved_path = user_folder / saved_name
+    shutil.move(str(tmp_video_path), str(saved_path))
+    relative_path = f"{user['id']}/{dog_name}/{saved_name}"
+
+    dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
+    database.add_entry(dog_id, [relative_path], diary_text, ai_provider, weather_icon, media_type="video")
+
+    return RedirectResponse(url=f"/dog/{dog_id}?uploaded={success_count}&failed={fail_count}", status_code=303)
 
 
 # ---------- 반려견 상세 / 수정 / 삭제 ----------

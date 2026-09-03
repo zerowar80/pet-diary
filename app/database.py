@@ -57,6 +57,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entry_id INTEGER NOT NULL,
             photo_path TEXT NOT NULL,
+            media_type TEXT DEFAULT 'photo',
             sort_order INTEGER DEFAULT 0,
             FOREIGN KEY (entry_id) REFERENCES entries (id) ON DELETE CASCADE
         )
@@ -91,6 +92,12 @@ def init_db():
     # 기존에 만들어둔 DB(is_admin 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    # 기존에 만들어둔 DB(media_type 컬럼이 없는 이전 버전)를 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE entry_photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
@@ -257,8 +264,9 @@ def delete_dog(user_id: int, dog_id: int):
 
 # ---------- entries ----------
 
-def add_entry(dog_id: int, photo_paths: list[str], diary_text: str, ai_provider: str, weather_icon: str | None = None) -> int:
-    """photo_paths: 이 일기에 포함될 사진 경로 목록 (1장이어도 리스트로 전달). 첫 번째 사진이 대표 사진이 됩니다."""
+def add_entry(dog_id: int, photo_paths: list[str], diary_text: str, ai_provider: str, weather_icon: str | None = None, media_type: str = "photo") -> int:
+    """photo_paths: 이 일기에 포함될 미디어 경로 목록 (1개여도 리스트로 전달). 첫 번째가 대표 미디어가 됩니다.
+    media_type: 'photo' 또는 'video'. 한 일기 안의 미디어는 모두 같은 타입입니다."""
     conn = get_conn()
     cover_photo = photo_paths[0]
     cur = conn.execute(
@@ -268,23 +276,23 @@ def add_entry(dog_id: int, photo_paths: list[str], diary_text: str, ai_provider:
     entry_id = cur.lastrowid
     for order, path in enumerate(photo_paths):
         conn.execute(
-            "INSERT INTO entry_photos (entry_id, photo_path, sort_order) VALUES (?, ?, ?)",
-            (entry_id, path, order),
+            "INSERT INTO entry_photos (entry_id, photo_path, media_type, sort_order) VALUES (?, ?, ?, ?)",
+            (entry_id, path, media_type, order),
         )
     conn.commit()
     conn.close()
     return entry_id
 
 
-def get_entry_photos(entry_id: int) -> list[str]:
+def get_entry_photos(entry_id: int) -> list[dict]:
+    """[{"path": ..., "media_type": "photo"|"video"}, ...] 목록을 정렬 순서대로 반환합니다."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT photo_path FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC",
+        "SELECT photo_path, media_type FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC",
         (entry_id,),
     ).fetchall()
     conn.close()
-    paths = [row["photo_path"] for row in rows]
-    return paths
+    return [{"path": row["photo_path"], "media_type": row["media_type"] or "photo"} for row in rows]
 
 
 def list_entries_for_dog(dog_id: int):
@@ -298,10 +306,15 @@ def list_entries_for_dog(dog_id: int):
 
 
 def get_first_entry_photo(dog_id: int):
-    """얼굴 인식용 대표 사진(가장 처음 올린 사진 경로)을 반환합니다. 사진이 없으면 None."""
+    """얼굴 인식용 대표 사진(가장 처음 올린 '사진' 경로, 동영상은 제외)을 반환합니다. 없으면 None."""
     conn = get_conn()
     row = conn.execute(
-        "SELECT photo_path FROM entries WHERE dog_id = ? ORDER BY created_at ASC LIMIT 1",
+        """
+        SELECT ep.photo_path FROM entries e
+        JOIN entry_photos ep ON ep.entry_id = e.id AND ep.sort_order = 0
+        WHERE e.dog_id = ? AND (ep.media_type IS NULL OR ep.media_type = 'photo')
+        ORDER BY e.created_at ASC LIMIT 1
+        """,
         (dog_id,),
     ).fetchone()
     conn.close()

@@ -26,6 +26,13 @@ def generate_diary_entry_multi(photo_paths: list[str], dog_name: str, provider: 
     return common.parse_response(text)
 
 
+def generate_diary_entry_video(video_path: str, dog_name: str, provider: str) -> tuple[str, str]:
+    """동영상을 직접 이해해서 일기를 생성합니다. 현재는 Gemini만 지원합니다."""
+    if provider != "gemini":
+        raise NotImplementedError("이 AI는 동영상을 직접 분석하지 못합니다.")
+    return gemini_provider.generate_video(video_path, dog_name)
+
+
 def generate_monthly_highlight(dog_name: str, month: str, diary_texts: list[str], provider: str) -> str:
     prompt = common.build_highlight_prompt(dog_name, month, diary_texts)
     return _module_for(provider).generate_text(prompt)

@@ -38,7 +38,11 @@
   <p class="sub" style="margin-top:24px;">{{ selected_month }}에 올린 사진 {{ entries|length }}장</p>
   <div class="highlight-grid">
     {% for entry in entries %}
+    {% if entry['photo_path'].endswith('.mp4') or entry['photo_path'].endswith('.mov') or entry['photo_path'].endswith('.webm') or entry['photo_path'].endswith('.m4v') %}
+    <div class="highlight-video-placeholder">🎬</div>
+    {% else %}
     <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
+    {% endif %}
     {% endfor %}
   </div>
   {% endif %}
