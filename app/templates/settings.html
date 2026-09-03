@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}설정{% endblock %}
+{% block content %}
+<section class="page">
+  <h1>설정</h1>
+  <p class="sub">관리자({{ user['username'] }})만 볼 수 있는 화면이에요.</p>
+
+  <h2 class="settings-section-title">AI API 키</h2>
+  <p class="hint">.env 파일을 직접 열지 않고 여기서 바로 입력/변경할 수 있어요. 빈 칸으로 두고 저장하면 기존 값이 그대로 유지됩니다.</p>
+  <form class="upload-form" action="/settings/ai-keys" method="post">
+    <label for="anthropic_key">Claude (Anthropic) API 키 {{ "· 설정됨" if current_keys['ANTHROPIC_API_KEY'] else "· 미설정" }}</label>
+    <input type="password" id="anthropic_key" name="anthropic_key" placeholder="sk-ant-..." autocomplete="off" />
+
+    <label for="google_key">Gemini (Google) API 키 {{ "· 설정됨" if current_keys['GOOGLE_API_KEY'] else "· 미설정" }}</label>
+    <input type="password" id="google_key" name="google_key" placeholder="AIza..." autocomplete="off" />
+
+    <label for="openai_key">ChatGPT (OpenAI) API 키 {{ "· 설정됨" if current_keys['OPENAI_API_KEY'] else "· 미설정" }}</label>
+    <input type="password" id="openai_key" name="openai_key" placeholder="sk-..." autocomplete="off" />
+
+    <button type="submit">저장</button>
+  </form>
+
+  <h2 class="settings-section-title">게스트 모드</h2>
+  <p class="hint">켜두면 로그인 없이 누구나 <code>/guest</code> 주소로 들어와서 내 반려견 앨범을 볼 수 있어요 (수정·삭제·업로드는 불가능, 보기 전용).</p>
+  <form class="upload-form" action="/settings/guest-mode" method="post">
+    <label class="checkbox-row" for="guest_enabled">
+      <input type="checkbox" id="guest_enabled" name="enabled" value="1" {% if guest_mode %}checked{% endif %} />
+      게스트 모드 사용
+    </label>
+    <button type="submit">저장</button>
+  </form>
+  {% if guest_mode %}
+  <p class="notice">게스트 모드가 켜져 있어요. 아래 주소를 공유하면 로그인 없이 볼 수 있습니다.</p>
+  <p class="hint">http(s)://이서버주소/guest</p>
+  {% endif %}
+
+  <h2 class="settings-section-title">로그인 기록</h2>
+  <p class="hint">최근 {{ logins|length }}건 (IP 주소 포함)</p>
+  {% if logins|length == 0 %}
+  <p class="hint">아직 기록이 없어요.</p>
+  {% else %}
+  <div class="login-history-list">
+    {% for log in logins %}
+    <div class="login-history-row">
+      <span class="login-history-user">{{ log['username'] }}</span>
+      <span class="login-history-ip">{{ log['ip_address'] }}</span>
+      <span class="login-history-time">{{ log['created_at'] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

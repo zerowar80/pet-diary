@@ -4,26 +4,32 @@
 <section class="page">
   <div class="album-header">
     <h1>우리 아이들</h1>
+    {% if not guest %}
     <a class="edit-link" href="/dog/new">+ 새 반려견 추가</a>
+    {% endif %}
   </div>
 
   {% if dogs|length == 0 %}
   <div class="empty-state">
     <p>아직 등록된 반려견이 없어요.</p>
+    {% if not guest %}
     <a class="cta" href="/dog/new">반려견 등록하기</a>
+    {% endif %}
   </div>
   {% else %}
   <div class="dog-grid">
     {% for dog in dogs %}
     <div class="dog-card">
-      <a class="dog-card-link" href="/dog/{{ dog['id'] }}">
+      <a class="dog-card-link" href="{{ '/guest/dog/' if guest else '/dog/' }}{{ dog['id'] }}">
         <div class="dog-avatar">{{ dog['name'][:2] }}</div>
         <div class="dog-info">
           <p class="dog-name">{{ dog['name'] }}</p>
           <p class="dog-meta">{{ dog['breed_guess'] or '견종 분석 중' }} · 사진 {{ dog['photo_count'] }}장</p>
         </div>
       </a>
+      {% if not guest %}
       <a class="dog-edit-icon" href="/dog/{{ dog['id'] }}/edit" aria-label="{{ dog['name'] }} 정보 수정">수정</a>
+      {% endif %}
     </div>
     {% endfor %}
   </div>

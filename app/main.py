@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import ai_providers, auth, database, weather
+from . import ai_providers, auth, database, settings, weather
 
 load_dotenv()
 
@@ -37,6 +37,7 @@ app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")
 @app.on_event("startup")
 def on_startup():
     database.init_db()
+    database.ensure_admin_exists()
 
 
 def require_login(request: Request):
@@ -73,8 +74,9 @@ def signup_submit(request: Request, username: str = Form(...), password: str = F
             "signup.html", {"request": request, "error": "이미 사용 중인 아이디예요."}
         )
 
-    user_id = database.create_user(username, auth.hash_password(password))
+    user_id = database.create_user(username, auth.hash_password(password), is_admin=(database.count_users() == 0))
     request.session["user_id"] = user_id
+    database.add_login_record(user_id, username, auth.get_client_ip(request), request.headers.get("user-agent", ""))
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -93,6 +95,7 @@ def login_submit(request: Request, username: str = Form(...), password: str = Fo
             "login.html", {"request": request, "error": "아이디 또는 비밀번호가 올바르지 않아요."}
         )
     request.session["user_id"] = user["id"]
+    database.add_login_record(user["id"], user["username"], auth.get_client_ip(request), request.headers.get("user-agent", ""))
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -142,6 +145,93 @@ def account_submit(
     database.update_user_password(user["id"], auth.hash_password(new_password))
     return templates.TemplateResponse(
         "account.html", {"request": request, "user": user, "error": None, "success": True}
+    )
+
+
+# ---------- 설정 (관리자 전용) ----------
+
+@app.get("/settings")
+def settings_page(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    if not user["is_admin"]:
+        return RedirectResponse(url="/")
+
+    current_keys = {
+        "ANTHROPIC_API_KEY": bool(settings.get("ANTHROPIC_API_KEY")),
+        "GOOGLE_API_KEY": bool(settings.get("GOOGLE_API_KEY")),
+        "OPENAI_API_KEY": bool(settings.get("OPENAI_API_KEY")),
+    }
+    guest_mode = settings.get_bool("GUEST_MODE_ENABLED")
+    logins = database.list_login_history(100)
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request, "user": user, "current_keys": current_keys,
+            "guest_mode": guest_mode, "logins": logins, "saved": False,
+        },
+    )
+
+
+@app.post("/settings/ai-keys")
+def settings_ai_keys(
+    request: Request,
+    anthropic_key: str = Form(""),
+    google_key: str = Form(""),
+    openai_key: str = Form(""),
+):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    if anthropic_key.strip():
+        database.set_setting("ANTHROPIC_API_KEY", anthropic_key.strip())
+    if google_key.strip():
+        database.set_setting("GOOGLE_API_KEY", google_key.strip())
+    if openai_key.strip():
+        database.set_setting("OPENAI_API_KEY", openai_key.strip())
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+@app.post("/settings/guest-mode")
+def settings_guest_mode(request: Request, enabled: str = Form("")):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    database.set_setting("GUEST_MODE_ENABLED", "1" if enabled == "1" else "0")
+    return RedirectResponse(url="/settings", status_code=303)
+
+
+# ---------- 게스트 모드 (로그인 없이 보기 전용) ----------
+
+@app.get("/guest")
+def guest_home(request: Request):
+    if not settings.get_bool("GUEST_MODE_ENABLED"):
+        return RedirectResponse(url="/login")
+    admin = database.get_admin_user()
+    if not admin:
+        return RedirectResponse(url="/login")
+    dogs = database.list_dogs(admin["id"])
+    return templates.TemplateResponse(
+        "home.html", {"request": request, "dogs": dogs, "user": None, "guest": True}
+    )
+
+
+@app.get("/guest/dog/{dog_id}")
+def guest_dog_album(request: Request, dog_id: int):
+    if not settings.get_bool("GUEST_MODE_ENABLED"):
+        return RedirectResponse(url="/login")
+    admin = database.get_admin_user()
+    if not admin:
+        return RedirectResponse(url="/login")
+    dog = database.get_dog(admin["id"], dog_id)
+    entries = database.list_entries_for_dog(dog_id) if dog else []
+    return templates.TemplateResponse(
+        "album.html",
+        {
+            "request": request, "user": None, "dog": dog, "entries": entries,
+            "uploaded": 0, "failed": 0, "guest": True,
+        },
     )
 
 

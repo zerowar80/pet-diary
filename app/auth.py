@@ -31,3 +31,13 @@ def get_current_user(request: Request):
     if not user_id:
         return None
     return database.get_user_by_id(user_id)
+
+
+def get_client_ip(request: Request) -> str:
+    """리버스 프록시(Nginx 등) 뒤에 있을 경우 X-Forwarded-For를 우선 확인합니다."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "알 수 없음"

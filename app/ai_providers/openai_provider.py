@@ -1,16 +1,15 @@
-import os
-
 from openai import OpenAI
 
+from .. import settings
 from .common import build_prompt, encode_image, parse_response
 
 
 def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = settings.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY가 .env에 설정되어 있지 않습니다.")
+        raise RuntimeError("OPENAI_API_KEY가 설정되어 있지 않습니다. 설정 화면이나 .env에서 입력해주세요.")
 
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+    model = settings.get("OPENAI_MODEL", "gpt-4o")
     client = OpenAI(api_key=api_key)
     data, media_type = encode_image(photo_path)
 
@@ -36,11 +35,11 @@ def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
 
 def generate_text(prompt: str, image_paths: list[str] | None = None) -> str:
     """이미지 0~여러 장 + 텍스트 프롬프트로 자유 형식 텍스트를 생성합니다."""
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = settings.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY가 .env에 설정되어 있지 않습니다.")
+        raise RuntimeError("OPENAI_API_KEY가 설정되어 있지 않습니다. 설정 화면이나 .env에서 입력해주세요.")
 
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+    model = settings.get("OPENAI_MODEL", "gpt-4o")
     client = OpenAI(api_key=api_key)
 
     content = [{"type": "text", "text": prompt}]

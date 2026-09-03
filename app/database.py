@@ -51,9 +51,35 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS login_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
     # 기존에 만들어둔 DB(weather_icon 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entries ADD COLUMN weather_icon TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    # 기존에 만들어둔 DB(is_admin 컬럼이 없는 이전 버전)를 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
@@ -61,18 +87,45 @@ def init_db():
     conn.close()
 
 
+def ensure_admin_exists():
+    """관리자가 한 명도 없는데 사용자는 있다면, 가장 먼저 가입한 사용자를 관리자로 지정합니다.
+    (is_admin 컬럼이 새로 추가된 기존 설치본을 위한 안전장치)"""
+    conn = get_conn()
+    admin_row = conn.execute("SELECT id FROM users WHERE is_admin = 1 LIMIT 1").fetchone()
+    if not admin_row:
+        first_user = conn.execute("SELECT id FROM users ORDER BY id ASC LIMIT 1").fetchone()
+        if first_user:
+            conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (first_user["id"],))
+            conn.commit()
+    conn.close()
+
+
 # ---------- users ----------
 
-def create_user(username: str, password_hash: str) -> int:
+def create_user(username: str, password_hash: str, is_admin: bool = False) -> int:
     conn = get_conn()
     cur = conn.execute(
-        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-        (username, password_hash),
+        "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
+        (username, password_hash, 1 if is_admin else 0),
     )
     conn.commit()
     user_id = cur.lastrowid
     conn.close()
     return user_id
+
+
+def count_users() -> int:
+    conn = get_conn()
+    row = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+    conn.close()
+    return row["cnt"]
+
+
+def get_admin_user():
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM users WHERE is_admin = 1 ORDER BY id ASC LIMIT 1").fetchone()
+    conn.close()
+    return row
 
 
 def get_user_by_username(username: str):
@@ -258,3 +311,45 @@ def delete_entry(entry_id: int):
     conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
     conn.commit()
     conn.close()
+
+
+# ---------- settings ----------
+
+def get_setting(key: str):
+    conn = get_conn()
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else None
+
+
+def set_setting(key: str, value: str):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------- 로그인 기록 ----------
+
+def add_login_record(user_id: int, username: str, ip_address: str, user_agent: str):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO login_history (user_id, username, ip_address, user_agent) VALUES (?, ?, ?, ?)",
+        (user_id, username, ip_address, user_agent),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_login_history(limit: int = 100):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM login_history ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return rows

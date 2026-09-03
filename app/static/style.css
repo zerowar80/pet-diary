@@ -477,6 +477,44 @@ h1 { font-size: 32px; }
   line-height: 1.8;
 }
 
+.settings-section-title {
+  margin-top: 36px;
+  font-size: 18px;
+}
+
+.login-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.login-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  background: var(--umber-light);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.login-history-user {
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.login-history-ip {
+  opacity: 0.75;
+  font-family: monospace;
+}
+
+.login-history-time {
+  opacity: 0.55;
+  margin-left: auto;
+}
+
 /* ---------- 모바일 화면 대응 ---------- */
 @media (max-width: 640px) {
   .topbar {

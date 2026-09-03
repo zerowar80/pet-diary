@@ -1,6 +1,7 @@
 import json
-import os
 import urllib.request
+
+from . import settings
 
 # WMO 날씨 코드 -> 이모지 매핑 (Open-Meteo 기준)
 # https://open-meteo.com/en/docs 의 weathercode 표를 참고했습니다.
@@ -39,8 +40,8 @@ WEATHER_CODE_EMOJI = {
 def get_current_weather_emoji() -> str | None:
     """.env에 WEATHER_LAT/WEATHER_LON이 설정되어 있으면 현재 날씨 이모지를 반환하고,
     설정이 없거나 조회에 실패하면 None을 반환합니다 (호출 측에서 장식용 아이콘으로 대체)."""
-    lat = os.environ.get("WEATHER_LAT", "").strip()
-    lon = os.environ.get("WEATHER_LON", "").strip()
+    lat = settings.get("WEATHER_LAT").strip()
+    lon = settings.get("WEATHER_LON").strip()
     if not lat or not lon:
         return None
 
