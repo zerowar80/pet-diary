@@ -13,45 +13,89 @@
   <p class="notice">비밀번호가 변경됐어요.</p>
   {% endif %}
 
-  <form class="upload-form" action="/account" method="post">
-    <label for="current_password">현재 비밀번호</label>
-    <input type="password" id="current_password" name="current_password" required />
+  <div class="settings-tabs" id="accountTabs">
+    <button type="button" class="settings-tab-btn active" data-tab="password">비밀번호</button>
+    <button type="button" class="settings-tab-btn" data-tab="notifications">알림</button>
+    <button type="button" class="settings-tab-btn" data-tab="delete">회원 탈퇴</button>
+  </div>
 
-    <label for="new_password">새 비밀번호</label>
-    <input type="password" id="new_password" name="new_password" placeholder="4자 이상" required />
+  <div class="settings-tab-panel active" data-panel="password">
+    <form class="upload-form" action="/account" method="post">
+      <label for="current_password">현재 비밀번호</label>
+      <input type="password" id="current_password" name="current_password" required />
 
-    <label for="new_password_confirm">새 비밀번호 확인</label>
-    <input type="password" id="new_password_confirm" name="new_password_confirm" required />
+      <label for="new_password">새 비밀번호</label>
+      <input type="password" id="new_password" name="new_password" placeholder="4자 이상" required />
 
-    <button type="submit">비밀번호 변경</button>
-  </form>
+      <label for="new_password_confirm">새 비밀번호 확인</label>
+      <input type="password" id="new_password_confirm" name="new_password_confirm" required />
 
-  <h2 class="settings-section-title">알림</h2>
-  <p class="hint">내 반려견 일기에 댓글이 달리면, 홈 화면 해당 카드에 새 표시(N)가 뜨게 할지 정할 수 있어요.</p>
-  <form class="upload-form" action="/account/notifications" method="post">
-    <label class="checkbox-row" for="comment_notifications">
-      <input type="checkbox" id="comment_notifications" name="comment_notifications" value="1" {% if comment_notifications_enabled %}checked{% endif %} />
-      댓글 알림 사용
-    </label>
-    <button type="submit">저장</button>
-  </form>
+      <button type="submit">비밀번호 변경</button>
+    </form>
+  </div>
 
-  <p class="hint" style="margin-top:16px;">새 쪽지가 오면 상단 메뉴에 배지로 알려드릴지 정할 수 있어요.</p>
-  <form class="upload-form" action="/account/message-notifications" method="post">
-    <label class="checkbox-row" for="message_notifications">
-      <input type="checkbox" id="message_notifications" name="message_notifications" value="1" {% if message_notifications_enabled %}checked{% endif %} />
-      쪽지 알림 사용
-    </label>
-    <button type="submit">저장</button>
-  </form>
+  <div class="settings-tab-panel" data-panel="notifications">
+    <h2 class="settings-section-title">댓글 알림</h2>
+    <p class="hint">내 반려견 일기에 댓글이 달리면, 홈 화면 해당 카드에 새 표시(N)가 뜨게 할지 정할 수 있어요.</p>
+    <form class="upload-form" action="/account/notifications" method="post">
+      <label class="checkbox-row" for="comment_notifications">
+        <input type="checkbox" id="comment_notifications" name="comment_notifications" value="1" {% if comment_notifications_enabled %}checked{% endif %} />
+        댓글 알림 사용
+      </label>
+      <button type="submit">저장</button>
+    </form>
 
-  <h2 class="settings-section-title" style="color:var(--danger);">회원 탈퇴</h2>
-  <p class="hint">탈퇴하면 내가 등록한 모든 반려견, 사진, 동영상, 일기, 댓글이 즉시 삭제되며 되돌릴 수 없어요.</p>
-  <form class="upload-form" action="/account/delete" method="post"
-        onsubmit="return confirm('정말 탈퇴하시겠어요? 내 반려견과 사진/일기가 전부 삭제되고 되돌릴 수 없어요.');">
-    <label for="delete_password">비밀번호 확인</label>
-    <input type="password" id="delete_password" name="password" placeholder="탈퇴하려면 비밀번호를 입력하세요" required />
-    <button type="submit" class="danger-btn" style="margin-top:20px;">회원 탈퇴하기</button>
-  </form>
+    <h2 class="settings-section-title">쪽지 알림</h2>
+    <p class="hint">새 쪽지가 오면 상단 메뉴에 배지로 알려드릴지 정할 수 있어요.</p>
+    <form class="upload-form" action="/account/message-notifications" method="post">
+      <label class="checkbox-row" for="message_notifications">
+        <input type="checkbox" id="message_notifications" name="message_notifications" value="1" {% if message_notifications_enabled %}checked{% endif %} />
+        쪽지 알림 사용
+      </label>
+      <button type="submit">저장</button>
+    </form>
+  </div>
+
+  <div class="settings-tab-panel" data-panel="delete">
+    <h2 class="settings-section-title" style="color:var(--danger);">회원 탈퇴</h2>
+    <p class="hint">탈퇴하면 내가 등록한 모든 반려견, 사진, 동영상, 일기, 댓글이 즉시 삭제되며 되돌릴 수 없어요.</p>
+    <form class="upload-form" action="/account/delete" method="post"
+          onsubmit="return confirm('정말 탈퇴하시겠어요? 내 반려견과 사진/일기가 전부 삭제되고 되돌릴 수 없어요.');">
+      <label for="delete_password">비밀번호 확인</label>
+      <input type="password" id="delete_password" name="password" placeholder="탈퇴하려면 비밀번호를 입력하세요" required />
+      <button type="submit" class="danger-btn" style="margin-top:20px;">회원 탈퇴하기</button>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    var tabs = document.getElementById('accountTabs');
+    if (!tabs) return;
+    var buttons = tabs.querySelectorAll('.settings-tab-btn');
+
+    function activate(name) {
+      buttons.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === name); });
+      document.querySelectorAll('.settings-tab-panel').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-panel') === name);
+      });
+    }
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        activate(btn.getAttribute('data-tab'));
+        if (history.replaceState) {
+          history.replaceState(null, '', '#' + btn.getAttribute('data-tab'));
+        }
+      });
+    });
+
+    var initial = (window.location.hash || '').replace('#', '');
+    if (initial && document.querySelector('.settings-tab-panel[data-panel="' + initial + '"]')) {
+      activate(initial);
+    } else if ({{ 'true' if error or success else 'false' }}) {
+      activate('{{ "delete" if error and "탈퇴" in error else "password" }}');
+    }
+  })();
+  </script>
 </section>
 {% endblock %}
