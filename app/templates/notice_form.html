@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ '공지 수정' if notice else '공지 작성' }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/notices">&larr; 공지사항 목록</a>
+  <h1>{{ '공지 수정' if notice else '새 공지 작성' }}</h1>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" action="{{ ('/notices/' ~ notice['id'] ~ '/edit') if notice else '/notices/new' }}" method="post">
+    <label for="title">제목</label>
+    <input type="text" id="title" name="title" value="{{ notice['title'] if notice else '' }}" required autofocus />
+
+    <label for="content">내용</label>
+    <textarea id="content" name="content" rows="8" required>{{ notice['content'] if notice else '' }}</textarea>
+
+    <button type="submit">{{ '수정 저장' if notice else '등록하기' }}</button>
+  </form>
+</section>
+{% endblock %}

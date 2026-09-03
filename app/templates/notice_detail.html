@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ notice['title'] }}{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/notices">&larr; 공지사항 목록</a>
+
+  <div class="album-header">
+    <div>
+      <h1>{{ notice['title'] }}</h1>
+      <p class="sub">{{ notice['created_at'][:10] }}{% if notice['author'] %} · {{ notice['author'] }}{% endif %}</p>
+    </div>
+    {% if user and user['is_admin'] %}
+    <div class="album-header-links">
+      <a class="edit-link" href="/notices/{{ notice['id'] }}/edit">수정</a>
+      <form action="/notices/{{ notice['id'] }}/delete" method="post" onsubmit="return confirm('이 공지를 삭제할까요?');">
+        <button type="submit" class="edit-link" style="background:none;border:none;cursor:pointer;">삭제</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="notice-content">{{ notice['content'] }}</div>
+</section>
+{% endblock %}

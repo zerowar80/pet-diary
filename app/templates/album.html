@@ -72,6 +72,33 @@
       <div class="entry-diary-box">
         <p class="entry-text">{{ entry['diary_text'] }}</p>
       </div>
+      <div class="entry-social" data-entry-id="{{ entry['id'] }}">
+        <div class="entry-reactions">
+          {% for emoji in REACTION_EMOJIS %}
+          <button type="button" class="reaction-btn{% if my_reactions.get(entry['id']) == emoji %} active{% endif %}"
+                  data-emoji="{{ emoji }}" {% if guest %}disabled{% endif %}>
+            {{ emoji }}<span class="reaction-count">{{ entry_reactions.get(entry['id'], {}).get(emoji, 0) or '' }}</span>
+          </button>
+          {% endfor %}
+        </div>
+        <div class="entry-comments">
+          {% for c in entry_comments.get(entry['id'], []) %}
+          <div class="comment-row" data-comment-id="{{ c['id'] }}">
+            <span class="comment-author">{{ c['username'] }}</span>
+            <span class="comment-content">{{ c['content'] }}</span>
+            {% if not guest and user and (user['id'] == c['user_id'] or user['is_admin']) %}
+            <button type="button" class="comment-delete-btn" data-comment-id="{{ c['id'] }}" aria-label="댓글 삭제">✕</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if not guest %}
+        <form class="comment-form">
+          <input type="text" class="comment-input" placeholder="댓글 달기..." maxlength="200" required />
+          <button type="submit">등록</button>
+        </form>
+        {% endif %}
+      </div>
     </article>
     {% endfor %}
   </div>
@@ -203,6 +230,90 @@
         el.addEventListener('click', function () {
           openLightbox(items, i);
         });
+      });
+    });
+
+    // ---------- 반응(이모지) ----------
+    viewport.querySelectorAll('.reaction-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var social = btn.closest('.entry-social');
+        var entryId = social.getAttribute('data-entry-id');
+        var emoji = btn.getAttribute('data-emoji');
+        var body = new URLSearchParams();
+        body.set('emoji', emoji);
+        fetch('/entry/' + entryId + '/react', { method: 'POST', body: body })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.error) return;
+            social.querySelectorAll('.reaction-btn').forEach(function (b) {
+              var e = b.getAttribute('data-emoji');
+              var count = (data.summary && data.summary[e]) || 0;
+              b.querySelector('.reaction-count').textContent = count > 0 ? count : '';
+              b.classList.toggle('active', data.my_reaction === e);
+            });
+          });
+      });
+    });
+
+    // ---------- 댓글 ----------
+    function bindCommentDelete(btn) {
+      btn.addEventListener('click', function () {
+        var commentId = btn.getAttribute('data-comment-id');
+        fetch('/comment/' + commentId + '/delete', { method: 'POST' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              var row = btn.closest('.comment-row');
+              if (row) row.remove();
+            }
+          });
+      });
+    }
+    viewport.querySelectorAll('.comment-delete-btn').forEach(bindCommentDelete);
+
+    viewport.querySelectorAll('.comment-form').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var social = form.closest('.entry-social');
+        var entryId = social.getAttribute('data-entry-id');
+        var input = form.querySelector('.comment-input');
+        var content = input.value.trim();
+        if (!content) return;
+        var body = new URLSearchParams();
+        body.set('content', content);
+        fetch('/entry/' + entryId + '/comment', { method: 'POST', body: body })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.error) return;
+            var list = social.querySelector('.entry-comments');
+            var row = document.createElement('div');
+            row.className = 'comment-row';
+            row.setAttribute('data-comment-id', data.id);
+
+            var authorSpan = document.createElement('span');
+            authorSpan.className = 'comment-author';
+            authorSpan.textContent = data.username;
+
+            var contentSpan = document.createElement('span');
+            contentSpan.className = 'comment-content';
+            contentSpan.textContent = data.content;
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'comment-delete-btn';
+            delBtn.setAttribute('data-comment-id', data.id);
+            delBtn.setAttribute('aria-label', '댓글 삭제');
+            delBtn.textContent = '✕';
+
+            row.appendChild(authorSpan);
+            row.appendChild(contentSpan);
+            row.appendChild(delBtn);
+            list.appendChild(row);
+            bindCommentDelete(delBtn);
+
+            input.value = '';
+          });
       });
     });
   })();

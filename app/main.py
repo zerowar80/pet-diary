@@ -1,13 +1,17 @@
 import os
 import shutil
+import tempfile
 import uuid
+import zipfile
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import ai_providers, auth, database, settings, video_utils, weather
@@ -22,6 +26,7 @@ VERSION_FILE = BASE_DIR / "VERSION"
 APP_VERSION = VERSION_FILE.read_text().strip() if VERSION_FILE.exists() else "0.0.0"
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "dev-only-change-me-in-.env")
+REACTION_EMOJIS = ["❤️", "😆", "😮", "😢", "👍"]
 
 app = FastAPI(title="반려견 AI 사진 일기장")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax")
@@ -30,6 +35,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 templates.env.globals["AI_PROVIDERS"] = ai_providers.PROVIDERS
 templates.env.globals["APP_VERSION"] = APP_VERSION
 templates.env.globals["site_title"] = lambda: settings.get("SITE_TITLE", "우리 아이 일기장")
+templates.env.globals["REACTION_EMOJIS"] = REACTION_EMOJIS
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")
@@ -180,6 +186,8 @@ def settings_page(request: Request):
         {
             "request": request, "user": user, "current_keys": current_keys,
             "guest_mode": guest_mode, "signup_enabled": signup_enabled,
+            "restore_success": request.query_params.get("restore_success"),
+            "restore_error": request.query_params.get("restore_error"),
             "current_site_title": current_site_title,
             "logins": logins, "saved": False,
         },
@@ -234,6 +242,78 @@ def settings_signup_mode(request: Request, enabled: str = Form("")):
     return RedirectResponse(url="/settings", status_code=303)
 
 
+# ---------- 백업 및 복구 ----------
+
+@app.get("/settings/backup/download")
+def settings_backup_download(request: Request):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_filename = f"pet-diary-backup-{timestamp}.zip"
+    backup_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}-{backup_filename}"
+
+    with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        db_path = BASE_DIR / "data" / "diary.db"
+        if db_path.exists():
+            zf.write(db_path, arcname="diary.db")
+        for file_path in UPLOAD_DIR.rglob("*"):
+            if file_path.is_file() and "_tmp" not in file_path.parts:
+                zf.write(file_path, arcname=str(Path("uploads") / file_path.relative_to(UPLOAD_DIR)))
+
+    cleanup = BackgroundTask(lambda: backup_path.unlink(missing_ok=True))
+    return FileResponse(
+        backup_path, filename=backup_filename, media_type="application/zip", background=cleanup
+    )
+
+
+@app.post("/settings/backup/restore")
+async def settings_backup_restore(request: Request, backup_file: UploadFile = None):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+
+    if not backup_file or not backup_file.filename:
+        return RedirectResponse(url="/settings?restore_error=1", status_code=303)
+
+    tmp_zip_path = Path(tempfile.gettempdir()) / f"restore_{uuid.uuid4().hex}.zip"
+    with tmp_zip_path.open("wb") as f:
+        shutil.copyfileobj(backup_file.file, f)
+
+    try:
+        with zipfile.ZipFile(tmp_zip_path) as zf:
+            names = zf.namelist()
+            if "diary.db" not in names:
+                return RedirectResponse(url="/settings?restore_error=1", status_code=303)
+
+            data_dir = BASE_DIR / "data"
+            safety_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            safety_dir = BASE_DIR / f"data_before_restore_{safety_timestamp}"
+            shutil.copytree(data_dir, safety_dir)
+
+            # DB 교체
+            with zf.open("diary.db") as src, open(data_dir / "diary.db", "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+            # uploads 폴더 교체
+            uploads_dir = data_dir / "uploads"
+            shutil.rmtree(uploads_dir, ignore_errors=True)
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            for name in names:
+                if name.startswith("uploads/") and not name.endswith("/"):
+                    target = data_dir / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(name) as src, open(target, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+    except (zipfile.BadZipFile, OSError):
+        return RedirectResponse(url="/settings?restore_error=1", status_code=303)
+    finally:
+        tmp_zip_path.unlink(missing_ok=True)
+
+    return RedirectResponse(url="/settings?restore_success=1", status_code=303)
+
+
 # ---------- 게스트 모드 (로그인 없이 보기 전용) ----------
 
 @app.get("/guest")
@@ -259,13 +339,120 @@ def guest_dog_album(request: Request, dog_id: int):
     dog = database.get_dog(admin["id"], dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
     entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
+    entry_reactions = {e["id"]: database.get_reaction_summary(e["id"]) for e in entries}
+    entry_comments = {e["id"]: database.list_comments(e["id"]) for e in entries}
     return templates.TemplateResponse(
         "album.html",
         {
             "request": request, "user": None, "dog": dog, "entries": entries,
-            "entry_photos": entry_photos, "uploaded": 0, "failed": 0, "guest": True,
+            "entry_photos": entry_photos, "entry_reactions": entry_reactions,
+            "my_reactions": {}, "entry_comments": entry_comments,
+            "uploaded": 0, "failed": 0, "guest": True,
         },
     )
+
+
+# ---------- 공지사항 ----------
+
+def _can_view_notices(request: Request):
+    """로그인 사용자이거나, 게스트 모드가 켜져있으면 True."""
+    user = auth.get_current_user(request)
+    if user:
+        return user, False
+    if settings.get_bool("GUEST_MODE_ENABLED"):
+        return None, True
+    return None, None  # 둘 다 아니면 접근 불가
+
+
+@app.get("/notices")
+def notices_list(request: Request):
+    user, guest = _can_view_notices(request)
+    if user is None and not guest:
+        return RedirectResponse(url="/login")
+    notices = database.list_notices()
+    return templates.TemplateResponse(
+        "notices.html", {"request": request, "user": user, "guest": guest, "notices": notices}
+    )
+
+
+@app.get("/notices/new")
+def notice_new_form(request: Request):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/notices")
+    return templates.TemplateResponse(
+        "notice_form.html", {"request": request, "user": user, "notice": None, "error": None}
+    )
+
+
+@app.post("/notices/new")
+def notice_new_submit(request: Request, title: str = Form(...), content: str = Form(...)):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/notices")
+    title = title.strip()
+    content = content.strip()
+    if not title or not content:
+        return templates.TemplateResponse(
+            "notice_form.html",
+            {"request": request, "user": user, "notice": None, "error": "제목과 내용을 모두 입력해주세요."},
+        )
+    notice_id = database.create_notice(title, content, user["username"])
+    return RedirectResponse(url=f"/notices/{notice_id}", status_code=303)
+
+
+@app.get("/notices/{notice_id}")
+def notice_detail(request: Request, notice_id: int):
+    user, guest = _can_view_notices(request)
+    if user is None and not guest:
+        return RedirectResponse(url="/login")
+    notice = database.get_notice(notice_id)
+    if not notice:
+        return RedirectResponse(url="/notices", status_code=303)
+    return templates.TemplateResponse(
+        "notice_detail.html", {"request": request, "user": user, "guest": guest, "notice": notice}
+    )
+
+
+@app.get("/notices/{notice_id}/edit")
+def notice_edit_form(request: Request, notice_id: int):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/notices")
+    notice = database.get_notice(notice_id)
+    if not notice:
+        return RedirectResponse(url="/notices", status_code=303)
+    return templates.TemplateResponse(
+        "notice_form.html", {"request": request, "user": user, "notice": notice, "error": None}
+    )
+
+
+@app.post("/notices/{notice_id}/edit")
+def notice_edit_submit(request: Request, notice_id: int, title: str = Form(...), content: str = Form(...)):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/notices")
+    notice = database.get_notice(notice_id)
+    if not notice:
+        return RedirectResponse(url="/notices", status_code=303)
+    title = title.strip()
+    content = content.strip()
+    if not title or not content:
+        return templates.TemplateResponse(
+            "notice_form.html",
+            {"request": request, "user": user, "notice": notice, "error": "제목과 내용을 모두 입력해주세요."},
+        )
+    database.update_notice(notice_id, title, content)
+    return RedirectResponse(url=f"/notices/{notice_id}", status_code=303)
+
+
+@app.post("/notices/{notice_id}/delete")
+def notice_delete(request: Request, notice_id: int):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/notices")
+    database.delete_notice(notice_id)
+    return RedirectResponse(url="/notices", status_code=303)
 
 
 # ---------- 홈 ----------
@@ -556,6 +743,9 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
     dog = database.get_dog(user["id"], dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
     entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
+    entry_reactions = {e["id"]: database.get_reaction_summary(e["id"]) for e in entries}
+    my_reactions = {e["id"]: database.get_user_reaction(e["id"], user["id"]) for e in entries}
+    entry_comments = {e["id"]: database.list_comments(e["id"]) for e in entries}
     return templates.TemplateResponse(
         "album.html",
         {
@@ -564,6 +754,9 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
             "dog": dog,
             "entries": entries,
             "entry_photos": entry_photos,
+            "entry_reactions": entry_reactions,
+            "my_reactions": my_reactions,
+            "entry_comments": entry_comments,
             "uploaded": uploaded,
             "failed": failed,
         },
@@ -705,6 +898,58 @@ def entry_media_delete(request: Request, entry_id: int, entry_photo_id: int):
         database.resync_entry_cover(entry_id)
 
     return RedirectResponse(url=f"/entry/{entry_id}/edit", status_code=303)
+
+
+# ---------- 반응(이모지) / 댓글 ----------
+
+@app.post("/entry/{entry_id}/react")
+def entry_react(request: Request, entry_id: int, emoji: str = Form(...)):
+    user = auth.get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "login_required"}, status_code=401)
+    entry = database.get_entry(entry_id)
+    if not entry or emoji not in REACTION_EMOJIS:
+        return JSONResponse({"error": "invalid"}, status_code=400)
+    dog = database.get_dog(user["id"], entry["dog_id"])
+    if not dog:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    database.toggle_reaction(entry_id, user["id"], emoji)
+    return JSONResponse({
+        "summary": database.get_reaction_summary(entry_id),
+        "my_reaction": database.get_user_reaction(entry_id, user["id"]),
+    })
+
+
+@app.post("/entry/{entry_id}/comment")
+def entry_comment_add(request: Request, entry_id: int, content: str = Form(...)):
+    user = auth.get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "login_required"}, status_code=401)
+    entry = database.get_entry(entry_id)
+    if not entry:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    dog = database.get_dog(user["id"], entry["dog_id"])
+    if not dog:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    content = content.strip()[:500]
+    if not content:
+        return JSONResponse({"error": "empty"}, status_code=400)
+    comment_id = database.add_comment(entry_id, user["id"], user["username"], content)
+    return JSONResponse({"id": comment_id, "username": user["username"], "content": content})
+
+
+@app.post("/comment/{comment_id}/delete")
+def comment_delete(request: Request, comment_id: int):
+    user = auth.get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "login_required"}, status_code=401)
+    comment = database.get_comment(comment_id)
+    if not comment:
+        return JSONResponse({"ok": True})
+    if comment["user_id"] != user["id"] and not user["is_admin"]:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    database.delete_comment(comment_id)
+    return JSONResponse({"ok": True})
 
 
 # ---------- 월간 하이라이트 ----------

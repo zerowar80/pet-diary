@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}공지사항{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="{{ '/guest' if guest else '/' }}">&larr; 전체 앨범</a>
+
+  <div class="album-header">
+    <h1>공지사항</h1>
+    {% if user and user['is_admin'] %}
+    <a class="edit-link" href="/notices/new">+ 공지 작성</a>
+    {% endif %}
+  </div>
+
+  {% if notices|length == 0 %}
+  <div class="empty-state">
+    <p>아직 등록된 공지사항이 없어요.</p>
+  </div>
+  {% else %}
+  <div class="notice-list">
+    {% for notice in notices %}
+    <a class="notice-row" href="/notices/{{ notice['id'] }}">
+      <span class="notice-title">{{ notice['title'] }}</span>
+      <span class="notice-date">{{ notice['created_at'][:10] }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

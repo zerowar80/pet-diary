@@ -83,6 +83,44 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS notices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            author TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS entry_reactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(entry_id, user_id),
+            FOREIGN KEY (entry_id) REFERENCES entries (id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS entry_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            user_id INTEGER,
+            username TEXT,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (entry_id) REFERENCES entries (id) ON DELETE CASCADE
+        )
+        """
+    )
     # 기존에 만들어둔 DB(weather_icon 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entries ADD COLUMN weather_icon TEXT")
@@ -453,3 +491,126 @@ def list_login_history(limit: int = 100):
     ).fetchall()
     conn.close()
     return rows
+
+
+# ---------- 공지사항 ----------
+
+def create_notice(title: str, content: str, author: str) -> int:
+    conn = get_conn()
+    cur = conn.execute(
+        "INSERT INTO notices (title, content, author) VALUES (?, ?, ?)",
+        (title, content, author),
+    )
+    conn.commit()
+    notice_id = cur.lastrowid
+    conn.close()
+    return notice_id
+
+
+def list_notices():
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM notices ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return rows
+
+
+def get_notice(notice_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM notices WHERE id = ?", (notice_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def update_notice(notice_id: int, title: str, content: str):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE notices SET title = ?, content = ?, updated_at = datetime('now') WHERE id = ?",
+        (title, content, notice_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_notice(notice_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM notices WHERE id = ?", (notice_id,))
+    conn.commit()
+    conn.close()
+
+
+# ---------- 반응(이모지) ----------
+
+def toggle_reaction(entry_id: int, user_id: int, emoji: str):
+    """같은 이모지를 다시 누르면 취소, 다른 이모지를 누르면 바꿉니다 (한 사람당 한 반응)."""
+    conn = get_conn()
+    existing = conn.execute(
+        "SELECT emoji FROM entry_reactions WHERE entry_id = ? AND user_id = ?", (entry_id, user_id)
+    ).fetchone()
+    if existing and existing["emoji"] == emoji:
+        conn.execute(
+            "DELETE FROM entry_reactions WHERE entry_id = ? AND user_id = ?", (entry_id, user_id)
+        )
+    else:
+        conn.execute(
+            "INSERT INTO entry_reactions (entry_id, user_id, emoji) VALUES (?, ?, ?) "
+            "ON CONFLICT(entry_id, user_id) DO UPDATE SET emoji = excluded.emoji, created_at = datetime('now')",
+            (entry_id, user_id, emoji),
+        )
+    conn.commit()
+    conn.close()
+
+
+def get_reaction_summary(entry_id: int) -> dict:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT emoji, COUNT(*) as cnt FROM entry_reactions WHERE entry_id = ? GROUP BY emoji",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    return {row["emoji"]: row["cnt"] for row in rows}
+
+
+def get_user_reaction(entry_id: int, user_id: int):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT emoji FROM entry_reactions WHERE entry_id = ? AND user_id = ?", (entry_id, user_id)
+    ).fetchone()
+    conn.close()
+    return row["emoji"] if row else None
+
+
+# ---------- 댓글 ----------
+
+def add_comment(entry_id: int, user_id: int, username: str, content: str) -> int:
+    conn = get_conn()
+    cur = conn.execute(
+        "INSERT INTO entry_comments (entry_id, user_id, username, content) VALUES (?, ?, ?, ?)",
+        (entry_id, user_id, username, content),
+    )
+    conn.commit()
+    comment_id = cur.lastrowid
+    conn.close()
+    return comment_id
+
+
+def list_comments(entry_id: int):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM entry_comments WHERE entry_id = ? ORDER BY created_at ASC", (entry_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_comment(comment_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM entry_comments WHERE id = ?", (comment_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def delete_comment(comment_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM entry_comments WHERE id = ?", (comment_id,))
+    conn.commit()
+    conn.close()

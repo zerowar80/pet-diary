@@ -52,6 +52,25 @@
     <button type="submit">저장</button>
   </form>
 
+  <h2 class="settings-section-title">백업 및 복구</h2>
+  <p class="hint">사진, 동영상, 일기, 계정 정보를 포함한 전체 데이터를 zip 파일로 내려받거나, 이전 백업으로 되돌릴 수 있어요.</p>
+  <a class="cta" href="/settings/backup/download">백업 다운로드</a>
+
+  {% if restore_success %}
+  <p class="notice">복원이 완료됐어요. 정상 작동하는지 확인해보세요.</p>
+  {% endif %}
+  {% if restore_error %}
+  <p class="error">복원에 실패했어요. 올바른 백업 zip 파일인지 확인해주세요.</p>
+  {% endif %}
+
+  <form class="upload-form" action="/settings/backup/restore" method="post" enctype="multipart/form-data"
+        onsubmit="return confirm('지금 있는 데이터가 이 백업 파일 내용으로 완전히 교체됩니다. 계속할까요?');" style="margin-top:12px;">
+    <label for="backup_file">백업 zip 파일 선택</label>
+    <input type="file" id="backup_file" name="backup_file" accept=".zip" required />
+    <button type="submit">복원하기</button>
+  </form>
+  <p class="hint">복원 전에 현재 데이터는 서버의 <code>data_before_restore_날짜시간</code> 폴더에 자동으로 안전하게 보관됩니다.</p>
+
   <h2 class="settings-section-title">로그인 기록</h2>
   <p class="hint">최근 {{ logins|length }}건 (IP 주소 포함)</p>
   {% if logins|length == 0 %}
