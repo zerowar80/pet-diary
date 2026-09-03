@@ -2,12 +2,15 @@
 {% block title %}우리 아이들 - 사진 일기장{% endblock %}
 {% block content %}
 <section class="page">
-  <h1>우리 아이들</h1>
+  <div class="album-header">
+    <h1>우리 아이들</h1>
+    <a class="edit-link" href="/dog/new">+ 새 반려견 추가</a>
+  </div>
 
   {% if dogs|length == 0 %}
   <div class="empty-state">
     <p>아직 등록된 반려견이 없어요.</p>
-    <a class="cta" href="/upload">첫 사진 올리기</a>
+    <a class="cta" href="/dog/new">반려견 등록하기</a>
   </div>
   {% else %}
   <div class="dog-grid">

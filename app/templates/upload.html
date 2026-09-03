@@ -10,13 +10,23 @@
   {% endif %}
 
   <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-    <label for="dog_name">이 아이 이름</label>
-    <input type="text" id="dog_name" name="dog_name" list="dog-names" placeholder="예: 초코, 보리, 나비..." required />
-    <datalist id="dog-names">
-      {% for dog in dogs %}
-      <option value="{{ dog['name'] }}"></option>
-      {% endfor %}
-    </datalist>
+    {% if dogs|length > 0 %}
+    <label class="checkbox-row" for="auto_identify">
+      <input type="checkbox" id="auto_identify" name="auto_identify" value="1"
+             onchange="document.getElementById('dog_name').required = !this.checked; document.getElementById('dog_name_wrap').style.opacity = this.checked ? 0.4 : 1;">
+      AI로 자동 인식하기 (등록된 아이들 중에서 사진으로 추정)
+    </label>
+    {% endif %}
+
+    <div id="dog_name_wrap">
+      <label for="dog_name">이 아이 이름</label>
+      <input type="text" id="dog_name" name="dog_name" list="dog-names" placeholder="예: 초코, 보리, 나비..." required />
+      <datalist id="dog-names">
+        {% for dog in dogs %}
+        <option value="{{ dog['name'] }}"></option>
+        {% endfor %}
+      </datalist>
+    </div>
 
     <label for="photo">사진 (여러 장 선택 가능)</label>
     <input type="file" id="photo" name="photos" accept="image/*" multiple required />
@@ -31,5 +41,8 @@
     <button type="submit">업로드하고 일기 생성</button>
   </form>
   <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요. 사진을 여러 장 고르면 장마다 각각 일기가 하나씩 생성됩니다.</p>
+  {% if dogs|length > 0 %}
+  <p class="hint">자동 인식은 AI가 사진을 보고 등록된 아이들과 비교해 추정하는 기능이라 100% 정확하지 않을 수 있어요. 여러 마리를 키우고 계실 때 편하게 쓰시고, 결과가 이상하면 체크를 풀고 이름을 직접 입력해주세요.</p>
+  {% endif %}
 </section>
 {% endblock %}

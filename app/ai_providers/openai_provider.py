@@ -32,3 +32,25 @@ def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
     )
     text = response.choices[0].message.content or ""
     return parse_response(text)
+
+
+def generate_text(prompt: str, image_paths: list[str] | None = None) -> str:
+    """이미지 0~여러 장 + 텍스트 프롬프트로 자유 형식 텍스트를 생성합니다."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY가 .env에 설정되어 있지 않습니다.")
+
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+    client = OpenAI(api_key=api_key)
+
+    content = [{"type": "text", "text": prompt}]
+    for path in image_paths or []:
+        data, media_type = encode_image(path)
+        content.append({"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{data}"}})
+
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=600,
+        messages=[{"role": "user", "content": content}],
+    )
+    return (response.choices[0].message.content or "").strip()

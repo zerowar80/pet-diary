@@ -158,6 +158,37 @@ def home(request: Request):
     )
 
 
+# ---------- 반려견 등록 ----------
+
+@app.get("/dog/new")
+def dog_new_form(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    return templates.TemplateResponse(
+        "dog_new.html", {"request": request, "user": user, "error": None}
+    )
+
+
+@app.post("/dog/new")
+def dog_new_submit(request: Request, name: str = Form(...), breed_guess: str = Form("")):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    name = name.strip()
+    if not name:
+        return templates.TemplateResponse(
+            "dog_new.html", {"request": request, "user": user, "error": "이름을 입력해주세요."}
+        )
+    if database.dog_name_exists(user["id"], name):
+        return templates.TemplateResponse(
+            "dog_new.html",
+            {"request": request, "user": user, "error": f"'{name}'은(는) 이미 등록된 이름이에요. 다른 이름을 입력해주세요."},
+        )
+    dog_id = database.create_dog(user["id"], name, breed_guess.strip() or None)
+    return RedirectResponse(url=f"/dog/{dog_id}", status_code=303)
+
+
 # ---------- 업로드 ----------
 
 @app.get("/upload")
@@ -174,8 +205,9 @@ def upload_form(request: Request):
 @app.post("/upload")
 async def upload_photo(
     request: Request,
-    dog_name: str = Form(...),
+    dog_name: str = Form(""),
     ai_provider: str = Form(...),
+    auto_identify: str = Form(""),
     photos: list[UploadFile] = None,
 ):
     user = require_login(request)
@@ -183,12 +215,61 @@ async def upload_photo(
         return RedirectResponse(url="/login")
 
     dog_name = dog_name.strip()
+    auto_identify = auto_identify == "1"
     dogs = database.list_dogs(user["id"])
     photos = [p for p in (photos or []) if p and p.filename]
-    if not dog_name or not photos:
+
+    if not photos:
         return templates.TemplateResponse(
             "upload.html",
-            {"request": request, "user": user, "dogs": dogs, "error": "반려견 이름과 사진을 모두 입력해주세요."},
+            {"request": request, "user": user, "dogs": dogs, "error": "사진을 선택해주세요."},
+        )
+
+    identified_tmp_path = None
+
+    if auto_identify:
+        candidates = []
+        for d in dogs:
+            ref_photo = database.get_first_entry_photo(d["id"])
+            if ref_photo:
+                candidates.append({"name": d["name"], "photo_path": str(UPLOAD_DIR / ref_photo)})
+
+        if not candidates:
+            return templates.TemplateResponse(
+                "upload.html",
+                {
+                    "request": request, "user": user, "dogs": dogs,
+                    "error": "자동 인식을 쓰려면 사진이 있는 반려견이 최소 하나 있어야 해요. 이름을 직접 입력해주세요.",
+                },
+            )
+
+        tmp_dir = UPLOAD_DIR / str(user["id"]) / "_tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        tmp_ext = Path(photos[0].filename or "photo.jpg").suffix or ".jpg"
+        identified_tmp_path = tmp_dir / f"{uuid.uuid4().hex}{tmp_ext}"
+        with identified_tmp_path.open("wb") as f:
+            shutil.copyfileobj(photos[0].file, f)
+
+        try:
+            identified_name = ai_providers.identify_dog(str(identified_tmp_path), candidates, ai_provider)
+        except Exception:  # noqa: BLE001
+            identified_name = None
+
+        if not identified_name:
+            identified_tmp_path.unlink(missing_ok=True)
+            return templates.TemplateResponse(
+                "upload.html",
+                {
+                    "request": request, "user": user, "dogs": dogs,
+                    "error": "AI가 확실하게 인식하지 못했어요. 이름을 직접 입력해서 다시 올려주세요.",
+                },
+            )
+        dog_name = identified_name
+
+    if not dog_name:
+        return templates.TemplateResponse(
+            "upload.html",
+            {"request": request, "user": user, "dogs": dogs, "error": "반려견 이름을 입력해주세요."},
         )
 
     user_folder = UPLOAD_DIR / str(user["id"]) / dog_name
@@ -199,13 +280,16 @@ async def upload_photo(
     fail_count = 0
     weather_icon = weather.get_current_weather_emoji()
 
-    for photo in photos:
+    for index, photo in enumerate(photos):
         ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
         saved_name = f"{uuid.uuid4().hex}{ext}"
         saved_path = user_folder / saved_name
 
-        with saved_path.open("wb") as f:
-            shutil.copyfileobj(photo.file, f)
+        if index == 0 and identified_tmp_path is not None:
+            shutil.move(str(identified_tmp_path), str(saved_path))
+        else:
+            with saved_path.open("wb") as f:
+                shutil.copyfileobj(photo.file, f)
 
         try:
             breed_guess, diary_text = ai_providers.generate_diary_entry(str(saved_path), dog_name, ai_provider)
@@ -300,3 +384,71 @@ def entry_delete(request: Request, entry_id: int):
             database.delete_entry(entry_id)
             return RedirectResponse(url=f"/dog/{dog['id']}", status_code=303)
     return RedirectResponse(url="/", status_code=303)
+
+
+# ---------- 월간 하이라이트 ----------
+
+@app.get("/dog/{dog_id}/highlight")
+def dog_highlight(request: Request, dog_id: int, month: str = "", provider: str = "claude", generate: int = 0):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    dog = database.get_dog(user["id"], dog_id)
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+
+    months = database.list_available_months(dog_id)
+    selected_month = month if month in months else (months[0] if months else "")
+    entries = database.list_entries_for_dog_month(dog_id, selected_month) if selected_month else []
+
+    summary = None
+    error = None
+    if selected_month and generate:
+        diary_texts = [e["diary_text"] for e in entries if e["diary_text"]]
+        if not diary_texts:
+            error = "이 달에는 요약할 일기 내용이 없어요."
+        else:
+            try:
+                summary = ai_providers.generate_monthly_highlight(dog["name"], selected_month, diary_texts, provider)
+            except Exception as exc:  # noqa: BLE001
+                error = f"하이라이트 생성 실패: {exc}"
+
+    return templates.TemplateResponse(
+        "highlight.html",
+        {
+            "request": request, "user": user, "dog": dog,
+            "months": months, "selected_month": selected_month,
+            "entries": entries, "summary": summary, "error": error,
+            "provider": provider,
+        },
+    )
+
+
+# ---------- 노래 가사 ----------
+
+@app.get("/dog/{dog_id}/song")
+def dog_song(request: Request, dog_id: int, provider: str = "claude", generate: int = 0):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    dog = database.get_dog(user["id"], dog_id)
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+
+    entries = database.list_entries_for_dog(dog_id)[:10]
+    lyrics = None
+    error = None
+    if generate:
+        diary_texts = [e["diary_text"] for e in entries if e["diary_text"]]
+        if not diary_texts:
+            error = "아직 일기가 없어서 노래를 만들 수 없어요. 먼저 사진을 올려주세요."
+        else:
+            try:
+                lyrics = ai_providers.generate_song_lyrics(dog["name"], diary_texts, provider)
+            except Exception as exc:  # noqa: BLE001
+                error = f"노래 생성 실패: {exc}"
+
+    return templates.TemplateResponse(
+        "song.html",
+        {"request": request, "user": user, "dog": dog, "lyrics": lyrics, "error": error, "provider": provider},
+    )

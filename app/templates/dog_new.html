@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}새 반려견 등록{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/">&larr; 전체 앨범</a>
+  <h1>새 반려견 등록</h1>
+  <p class="sub">이름만 먼저 등록해두고, 사진은 나중에 올려도 돼요.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" action="/dog/new" method="post">
+    <label for="name">이름</label>
+    <input type="text" id="name" name="name" placeholder="예: 초코, 보리, 나비..." required autofocus />
+
+    <label for="breed_guess">견종 (선택)</label>
+    <input type="text" id="breed_guess" name="breed_guess" placeholder="모르면 비워두셔도 돼요" />
+
+    <button type="submit">등록하기</button>
+  </form>
+</section>
+{% endblock %}

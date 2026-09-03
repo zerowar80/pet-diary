@@ -12,7 +12,11 @@
       <h1>{{ dog['name'] }}의 일기</h1>
       <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}</p>
     </div>
-    <a class="edit-link" href="/dog/{{ dog['id'] }}/edit">정보 수정 / 삭제</a>
+    <div class="album-header-links">
+      <a class="edit-link" href="/dog/{{ dog['id'] }}/highlight">월간 하이라이트</a>
+      <a class="edit-link" href="/dog/{{ dog['id'] }}/song">노래 만들기</a>
+      <a class="edit-link" href="/dog/{{ dog['id'] }}/edit">정보 수정 / 삭제</a>
+    </div>
   </div>
 
   {% if uploaded and uploaded > 0 %}

@@ -119,6 +119,27 @@ def get_or_create_dog(user_id: int, name: str, breed_guess: str | None = None) -
     return dog_id
 
 
+def dog_name_exists(user_id: int, name: str) -> bool:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT id FROM dogs WHERE user_id = ? AND name = ?", (user_id, name)
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def create_dog(user_id: int, name: str, breed_guess: str | None = None) -> int:
+    conn = get_conn()
+    cur = conn.execute(
+        "INSERT INTO dogs (user_id, name, breed_guess) VALUES (?, ?, ?)",
+        (user_id, name, breed_guess),
+    )
+    conn.commit()
+    dog_id = cur.lastrowid
+    conn.close()
+    return dog_id
+
+
 def list_dogs(user_id: int):
     conn = get_conn()
     rows = conn.execute(
@@ -179,6 +200,47 @@ def list_entries_for_dog(dog_id: int):
     rows = conn.execute(
         "SELECT * FROM entries WHERE dog_id = ? ORDER BY created_at DESC",
         (dog_id,),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_first_entry_photo(dog_id: int):
+    """얼굴 인식용 대표 사진(가장 처음 올린 사진 경로)을 반환합니다. 사진이 없으면 None."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT photo_path FROM entries WHERE dog_id = ? ORDER BY created_at ASC LIMIT 1",
+        (dog_id,),
+    ).fetchone()
+    conn.close()
+    return row["photo_path"] if row else None
+
+
+def list_available_months(dog_id: int):
+    """해당 반려견의 일기가 있는 연-월 목록을 최신순으로 반환합니다 (예: ['2026-09', '2026-08'])."""
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT DISTINCT substr(created_at, 1, 7) AS ym
+        FROM entries
+        WHERE dog_id = ?
+        ORDER BY ym DESC
+        """,
+        (dog_id,),
+    ).fetchall()
+    conn.close()
+    return [row["ym"] for row in rows]
+
+
+def list_entries_for_dog_month(dog_id: int, year_month: str):
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT * FROM entries
+        WHERE dog_id = ? AND substr(created_at, 1, 7) = ?
+        ORDER BY created_at ASC
+        """,
+        (dog_id, year_month),
     ).fetchall()
     conn.close()
     return rows

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ dog['name'] if dog else '' }} 월간 하이라이트{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/dog/{{ dog['id'] }}">&larr; {{ dog['name'] }}의 일기로</a>
+  <h1>{{ dog['name'] }}의 월간 하이라이트</h1>
+
+  {% if not months %}
+  <div class="empty-state">
+    <p>아직 일기가 없어서 하이라이트를 만들 수 없어요.</p>
+    <a class="cta" href="/upload">사진 올리기</a>
+  </div>
+  {% else %}
+  <form class="upload-form" action="/dog/{{ dog['id'] }}/highlight" method="get">
+    <label for="month">돌아볼 달</label>
+    <select id="month" name="month" onchange="this.form.submit()">
+      {% for m in months %}
+      <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="provider">요약해줄 AI</label>
+    <select id="provider" name="provider">
+      {% for key, info in AI_PROVIDERS.items() %}
+      <option value="{{ key }}" {% if key == provider %}selected{% endif %}>{{ info['label'] }}</option>
+      {% endfor %}
+    </select>
+
+    <input type="hidden" name="generate" value="1" />
+    <button type="submit">이 달 하이라이트 만들기</button>
+  </form>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if entries %}
+  <p class="sub" style="margin-top:24px;">{{ selected_month }}에 올린 사진 {{ entries|length }}장</p>
+  <div class="highlight-grid">
+    {% for entry in entries %}
+    <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if summary %}
+  <div class="highlight-summary">
+    <p class="label-tag">HIGHLIGHT.</p>
+    <p class="entry-text">{{ summary }}</p>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

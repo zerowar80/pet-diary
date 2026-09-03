@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ dog['name'] if dog else '' }} 노래 가사{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/dog/{{ dog['id'] }}">&larr; {{ dog['name'] }}의 일기로</a>
+  <h1>{{ dog['name'] }}에게 바치는 노래</h1>
+  <p class="sub">최근 일기들을 참고해서 짧은 노래 가사를 만들어드려요.</p>
+
+  <form class="upload-form" action="/dog/{{ dog['id'] }}/song" method="get">
+    <label for="provider">가사를 써줄 AI</label>
+    <select id="provider" name="provider">
+      {% for key, info in AI_PROVIDERS.items() %}
+      <option value="{{ key }}" {% if key == provider %}selected{% endif %}>{{ info['label'] }}</option>
+      {% endfor %}
+    </select>
+
+    <input type="hidden" name="generate" value="1" />
+    <button type="submit">노래 가사 만들기</button>
+  </form>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if lyrics %}
+  <div class="highlight-summary">
+    <p class="label-tag">SONG.</p>
+    <p class="entry-text" style="white-space: pre-line;">{{ lyrics }}</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
