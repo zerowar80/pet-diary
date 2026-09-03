@@ -10,7 +10,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{{ '/guest' if guest else '/' }}">우리 아이 일기장</a>
+    <a class="brand" href="{{ '/guest' if guest else '/' }}">{{ site_title() }}</a>
     {% if user %}
     <div class="topbar-right">
       <span class="username">{{ user['username'] }}님</span>

@@ -29,6 +29,7 @@ app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax"
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 templates.env.globals["AI_PROVIDERS"] = ai_providers.PROVIDERS
 templates.env.globals["APP_VERSION"] = APP_VERSION
+templates.env.globals["site_title"] = lambda: settings.get("SITE_TITLE", "우리 아이 일기장")
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")
@@ -172,15 +173,28 @@ def settings_page(request: Request):
     }
     guest_mode = settings.get_bool("GUEST_MODE_ENABLED")
     signup_enabled = settings.get_bool("SIGNUP_ENABLED", default=True)
+    current_site_title = settings.get("SITE_TITLE", "우리 아이 일기장")
     logins = database.list_login_history(100)
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request, "user": user, "current_keys": current_keys,
             "guest_mode": guest_mode, "signup_enabled": signup_enabled,
+            "current_site_title": current_site_title,
             "logins": logins, "saved": False,
         },
     )
+
+
+@app.post("/settings/site-title")
+def settings_site_title(request: Request, site_title: str = Form("")):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    site_title = site_title.strip()
+    if site_title:
+        database.set_setting("SITE_TITLE", site_title)
+    return RedirectResponse(url="/settings", status_code=303)
 
 
 @app.post("/settings/ai-keys")
