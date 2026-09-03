@@ -17,7 +17,7 @@ def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
     model = genai.GenerativeModel(model_name)
 
     image = Image.open(photo_path)
-    response = model.generate_content([build_prompt(dog_name), image])
+    response = model.generate_content([build_prompt(dog_name, settings.get("DIARY_VOICE", "guardian")), image])
     text = response.text or ""
     return parse_response(text)
 
@@ -54,6 +54,6 @@ def generate_video(video_path: str, dog_name: str) -> tuple[str, str]:
         video_bytes = f.read()
     video_part = {"mime_type": mime_type, "data": video_bytes}
 
-    response = model.generate_content([video_part, build_video_prompt(dog_name)])
+    response = model.generate_content([video_part, build_video_prompt(dog_name, settings.get("DIARY_VOICE", "guardian"))])
     text = response.text or ""
     return parse_response(text)

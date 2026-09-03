@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}쪽지함{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/">&larr; 전체 앨범</a>
+
+  <div class="album-header">
+    <h1>쪽지함</h1>
+    <a class="edit-link" href="/messages/new">+ 쪽지 보내기</a>
+  </div>
+
+  <div class="settings-tabs">
+    <a href="/messages" class="settings-tab-btn {% if box == 'inbox' %}active{% endif %}">받은 쪽지</a>
+    <a href="/messages/sent" class="settings-tab-btn {% if box == 'sent' %}active{% endif %}">보낸 쪽지</a>
+  </div>
+
+  {% if messages|length == 0 %}
+  <div class="empty-state">
+    <p>{{ '받은 쪽지가 없어요.' if box == 'inbox' else '보낸 쪽지가 없어요.' }}</p>
+  </div>
+  {% else %}
+  <div class="message-list">
+    {% for m in messages %}
+    <div class="message-card">
+      <div class="message-meta">
+        <span class="message-person">{{ ('보낸 사람: ' ~ m['sender_username']) if box == 'inbox' else ('받는 사람: ' ~ m['recipient_username']) }}</span>
+        <span class="message-date">{{ m['created_at'][:16] }}</span>
+      </div>
+      <p class="message-content">{{ m['content'] }}</p>
+      <div class="message-actions">
+        {% if box == 'inbox' %}
+        <a class="edit-link" href="/messages/new?to={{ m['sender_id'] }}">답장</a>
+        {% endif %}
+        <form action="/messages/{{ m['id'] }}/delete" method="post" onsubmit="return confirm('이 쪽지를 삭제할까요?');">
+          <button type="submit" class="edit-link" style="background:none;border:none;cursor:pointer;">삭제</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -15,9 +15,11 @@
     <div class="topbar-right">
       <span class="username">{{ user['username'] }}님</span>
       <a class="new-entry-btn" href="/upload">사진 올리기</a>
+      <a class="logout-link" href="/family">가족</a>
+      <a class="logout-link nav-with-badge" href="/messages">쪽지{% if unread_message_count(request) > 0 %}<span class="new-badge">{{ unread_message_count(request) }}</span>{% endif %}</a>
       <a class="logout-link nav-with-badge" href="/notices">공지사항{% if has_new_notice(request) %}<span class="new-badge">N</span>{% endif %}</a>
       {% if user['is_admin'] %}
-      <a class="logout-link" href="/settings">설정</a>
+      <a class="logout-link nav-with-badge" href="/settings">설정{% if has_new_member(request) %}<span class="new-badge">N</span>{% endif %}</a>
       {% endif %}
       <a class="logout-link" href="/account">계정</a>
       <a class="logout-link" href="/logout">로그아웃</a>

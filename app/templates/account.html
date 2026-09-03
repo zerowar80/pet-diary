@@ -35,5 +35,23 @@
     </label>
     <button type="submit">저장</button>
   </form>
+
+  <p class="hint" style="margin-top:16px;">새 쪽지가 오면 상단 메뉴에 배지로 알려드릴지 정할 수 있어요.</p>
+  <form class="upload-form" action="/account/message-notifications" method="post">
+    <label class="checkbox-row" for="message_notifications">
+      <input type="checkbox" id="message_notifications" name="message_notifications" value="1" {% if message_notifications_enabled %}checked{% endif %} />
+      쪽지 알림 사용
+    </label>
+    <button type="submit">저장</button>
+  </form>
+
+  <h2 class="settings-section-title" style="color:var(--danger);">회원 탈퇴</h2>
+  <p class="hint">탈퇴하면 내가 등록한 모든 반려견, 사진, 동영상, 일기, 댓글이 즉시 삭제되며 되돌릴 수 없어요.</p>
+  <form class="upload-form" action="/account/delete" method="post"
+        onsubmit="return confirm('정말 탈퇴하시겠어요? 내 반려견과 사진/일기가 전부 삭제되고 되돌릴 수 없어요.');">
+    <label for="delete_password">비밀번호 확인</label>
+    <input type="password" id="delete_password" name="password" placeholder="탈퇴하려면 비밀번호를 입력하세요" required />
+    <button type="submit" class="danger-btn" style="margin-top:20px;">회원 탈퇴하기</button>
+  </form>
 </section>
 {% endblock %}

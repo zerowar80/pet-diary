@@ -732,6 +732,8 @@ h1 { font-size: 32px; }
   padding: 8px 14px;
   border-radius: 999px 999px 0 0;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
 }
 
 .settings-tab-btn.active {
@@ -1182,6 +1184,18 @@ h1 { font-size: 32px; }
   opacity: 0.85;
 }
 
+.voice-option {
+  max-width: 160px;
+  text-align: center;
+}
+
+.voice-option .theme-option-name small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
 .dog-card-badge {
   position: absolute;
   top: 10px;
@@ -1189,4 +1203,118 @@ h1 { font-size: 32px; }
   width: 18px;
   height: 18px;
   font-size: 10px;
+}
+
+/* ---------- 쪽지함 ---------- */
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message-card {
+  background: #FFFDF8;
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.message-content {
+  font-family: 'Gaegu', cursive;
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0 0 10px;
+  white-space: pre-line;
+}
+
+.message-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ---------- 회원 관리 ---------- */
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--umber-light);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.member-username {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.member-admin-tag {
+  display: inline-block;
+  margin-left: 8px;
+  background: var(--mustard);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.member-meta {
+  display: block;
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+.member-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ---------- 가족 초대 링크 ---------- */
+.invite-link-box {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.invite-link-box input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(43,33,26,0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--paper-text);
+}
+
+.invite-link-box button {
+  background: var(--mustard);
+  color: var(--ink);
+  border: none;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
 }

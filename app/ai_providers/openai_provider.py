@@ -20,7 +20,7 @@ def generate(photo_path: str, dog_name: str) -> tuple[str, str]:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": build_prompt(dog_name)},
+                    {"type": "text", "text": build_prompt(dog_name, settings.get("DIARY_VOICE", "guardian"))},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:{media_type};base64,{data}"},

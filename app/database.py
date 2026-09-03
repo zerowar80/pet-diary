@@ -97,6 +97,22 @@ def init_db():
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER NOT NULL,
+            sender_username TEXT NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            recipient_username TEXT NOT NULL,
+            content TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS entry_reactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entry_id INTEGER NOT NULL,
@@ -156,6 +172,37 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
+    # 신규 가입 알림(관리자용)을 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN members_last_seen_at TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    # 쪽지 알림 설정을 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN message_notifications_enabled INTEGER DEFAULT 1")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    # 가족 초대 기능을 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN family_invite_token TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS family_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_a_id INTEGER NOT NULL,
+            user_b_id INTEGER NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_a_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (user_b_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.commit()
     # 기존에 만들어둔 DB(media_type 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entry_photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
@@ -724,3 +771,284 @@ def set_comment_notifications_enabled(user_id: int, enabled: bool):
     )
     conn.commit()
     conn.close()
+
+
+# ---------- 회원 관리 ----------
+
+def list_users():
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT users.id, users.username, users.is_admin, users.created_at,
+               COUNT(dogs.id) as dog_count
+        FROM users
+        LEFT JOIN dogs ON dogs.user_id = users.id
+        GROUP BY users.id
+        ORDER BY users.created_at ASC
+        """
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def count_admins() -> int:
+    conn = get_conn()
+    row = conn.execute("SELECT COUNT(*) as cnt FROM users WHERE is_admin = 1").fetchone()
+    conn.close()
+    return row["cnt"]
+
+
+def set_user_admin(user_id: int, is_admin: bool):
+    conn = get_conn()
+    conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (1 if is_admin else 0, user_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_user(user_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_latest_member_created_at(exclude_user_id: int):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT MAX(created_at) as latest FROM users WHERE id != ?", (exclude_user_id,)
+    ).fetchone()
+    conn.close()
+    return row["latest"] if row else None
+
+
+def update_members_last_seen(user_id: int):
+    conn = get_conn()
+    conn.execute("UPDATE users SET members_last_seen_at = datetime('now') WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_members_last_seen(user_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT members_last_seen_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return row["members_last_seen_at"] if row else None
+
+
+# ---------- 쪽지 ----------
+
+def list_other_users(exclude_user_id: int):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, username FROM users WHERE id != ? ORDER BY username ASC", (exclude_user_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def send_message(sender_id: int, sender_username: str, recipient_id: int, recipient_username: str, content: str) -> int:
+    conn = get_conn()
+    cur = conn.execute(
+        """
+        INSERT INTO messages (sender_id, sender_username, recipient_id, recipient_username, content)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (sender_id, sender_username, recipient_id, recipient_username, content),
+    )
+    conn.commit()
+    message_id = cur.lastrowid
+    conn.close()
+    return message_id
+
+
+def list_inbox(user_id: int):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM messages WHERE recipient_id = ? ORDER BY created_at DESC", (user_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def list_sent(user_id: int):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM messages WHERE sender_id = ? ORDER BY created_at DESC", (user_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_message(message_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def mark_message_read(message_id: int):
+    conn = get_conn()
+    conn.execute("UPDATE messages SET is_read = 1 WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_message(message_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+
+def count_unread_messages(user_id: int) -> int:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT COUNT(*) as cnt FROM messages WHERE recipient_id = ? AND is_read = 0", (user_id,)
+    ).fetchone()
+    conn.close()
+    return row["cnt"]
+
+
+def get_message_notifications_enabled(user_id: int) -> bool:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT message_notifications_enabled FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    if row is None or row["message_notifications_enabled"] is None:
+        return True
+    return bool(row["message_notifications_enabled"])
+
+
+def set_message_notifications_enabled(user_id: int, enabled: bool):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE users SET message_notifications_enabled = ? WHERE id = ?",
+        (1 if enabled else 0, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------- 가족 초대 ----------
+
+def get_or_create_invite_token(user_id: int) -> str:
+    conn = get_conn()
+    row = conn.execute("SELECT family_invite_token FROM users WHERE id = ?", (user_id,)).fetchone()
+    token = row["family_invite_token"] if row else None
+    if not token:
+        import secrets
+        token = secrets.token_urlsafe(16)
+        conn.execute("UPDATE users SET family_invite_token = ? WHERE id = ?", (token, user_id))
+        conn.commit()
+    conn.close()
+    return token
+
+
+def regenerate_invite_token(user_id: int) -> str:
+    import secrets
+    token = secrets.token_urlsafe(16)
+    conn = get_conn()
+    conn.execute("UPDATE users SET family_invite_token = ? WHERE id = ?", (token, user_id))
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_user_by_invite_token(token: str):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM users WHERE family_invite_token = ?", (token,)).fetchone()
+    conn.close()
+    return row
+
+
+def is_family_member(user_id_a: int, user_id_b: int) -> bool:
+    if user_id_a == user_id_b:
+        return True
+    conn = get_conn()
+    row = conn.execute(
+        """
+        SELECT 1 FROM family_links
+        WHERE (user_a_id = ? AND user_b_id = ?) OR (user_a_id = ? AND user_b_id = ?)
+        LIMIT 1
+        """,
+        (user_id_a, user_id_b, user_id_b, user_id_a),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def add_family_link(user_id_a: int, user_id_b: int):
+    if user_id_a == user_id_b or is_family_member(user_id_a, user_id_b):
+        return
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO family_links (user_a_id, user_b_id) VALUES (?, ?)", (user_id_a, user_id_b)
+    )
+    conn.commit()
+    conn.close()
+
+
+def remove_family_link(user_id_a: int, user_id_b: int):
+    conn = get_conn()
+    conn.execute(
+        """
+        DELETE FROM family_links
+        WHERE (user_a_id = ? AND user_b_id = ?) OR (user_a_id = ? AND user_b_id = ?)
+        """,
+        (user_id_a, user_id_b, user_id_b, user_id_a),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_family_members(user_id: int):
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT u.id, u.username
+        FROM family_links fl
+        JOIN users u ON u.id = (CASE WHEN fl.user_a_id = ? THEN fl.user_b_id ELSE fl.user_a_id END)
+        WHERE fl.user_a_id = ? OR fl.user_b_id = ?
+        ORDER BY u.username ASC
+        """,
+        (user_id, user_id, user_id),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def list_family_dogs(user_id: int):
+    """가족으로 연결된 다른 사용자들의 반려견 목록을 소유자 이름과 함께 반환합니다."""
+    conn = get_conn()
+    rows = conn.execute(
+        """
+        SELECT dogs.id, dogs.name, dogs.breed_guess, dogs.profile_photo,
+               COUNT(entries.id) as photo_count, users.username as owner_username
+        FROM dogs
+        JOIN users ON users.id = dogs.user_id
+        LEFT JOIN entries ON entries.dog_id = dogs.id
+        WHERE dogs.user_id IN (
+            SELECT CASE WHEN fl.user_a_id = ? THEN fl.user_b_id ELSE fl.user_a_id END
+            FROM family_links fl
+            WHERE fl.user_a_id = ? OR fl.user_b_id = ?
+        )
+        GROUP BY dogs.id
+        ORDER BY dogs.created_at DESC
+        """,
+        (user_id, user_id, user_id),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_dog_for_viewing(viewer_user_id: int, dog_id: int):
+    """본인 소유 반려견이거나, 가족으로 연결된 사용자의 반려견이면 반환합니다."""
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM dogs WHERE id = ?", (dog_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    if row["user_id"] == viewer_user_id or is_family_member(row["user_id"], viewer_user_id):
+        return row
+    return None

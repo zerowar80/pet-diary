@@ -1,4 +1,5 @@
 from . import claude_provider, common, gemini_provider, openai_provider
+from .. import settings
 
 PROVIDERS = {
     "claude": {"label": "Claude (Anthropic)", "module": claude_provider},
@@ -21,7 +22,8 @@ def generate_diary_entry(photo_path: str, dog_name: str, provider: str) -> tuple
 
 def generate_diary_entry_multi(photo_paths: list[str], dog_name: str, provider: str) -> tuple[str, str]:
     """여러 장의 사진을 한 번에 보고 하나의 일기로 만들어줍니다."""
-    prompt = common.build_multi_prompt(dog_name, len(photo_paths))
+    voice = settings.get("DIARY_VOICE", "guardian")
+    prompt = common.build_multi_prompt(dog_name, len(photo_paths), voice)
     text = _module_for(provider).generate_text(prompt, image_paths=photo_paths)
     return common.parse_response(text)
 

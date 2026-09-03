@@ -54,6 +54,34 @@ def _has_new_notice(request: Request) -> bool:
 
 templates.env.globals["has_new_notice"] = _has_new_notice
 
+
+def _has_new_member(request: Request) -> bool:
+    user = auth.get_current_user(request)
+    if not user or not user["is_admin"]:
+        return False
+    latest = database.get_latest_member_created_at(user["id"])
+    if not latest:
+        return False
+    last_seen = database.get_members_last_seen(user["id"])
+    if not last_seen:
+        return True
+    return latest > last_seen
+
+
+templates.env.globals["has_new_member"] = _has_new_member
+
+
+def _unread_message_count(request: Request) -> int:
+    user = auth.get_current_user(request)
+    if not user:
+        return 0
+    if not database.get_message_notifications_enabled(user["id"]):
+        return 0
+    return database.count_unread_messages(user["id"])
+
+
+templates.env.globals["unread_message_count"] = _unread_message_count
+
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")
 
@@ -108,7 +136,8 @@ def signup_submit(request: Request, username: str = Form(...), password: str = F
     user_id = database.create_user(username, auth.hash_password(password), is_admin=(database.count_users() == 0))
     request.session["user_id"] = user_id
     database.add_login_record(user_id, username, auth.get_client_ip(request), request.headers.get("user-agent", ""))
-    return RedirectResponse(url="/", status_code=303)
+    redirect_to = request.session.pop("post_login_redirect", None)
+    return RedirectResponse(url=redirect_to or "/", status_code=303)
 
 
 @app.get("/login")
@@ -127,7 +156,8 @@ def login_submit(request: Request, username: str = Form(...), password: str = Fo
         )
     request.session["user_id"] = user["id"]
     database.add_login_record(user["id"], user["username"], auth.get_client_ip(request), request.headers.get("user-agent", ""))
-    return RedirectResponse(url="/", status_code=303)
+    redirect_to = request.session.pop("post_login_redirect", None)
+    return RedirectResponse(url=redirect_to or "/", status_code=303)
 
 
 @app.get("/logout")
@@ -146,8 +176,49 @@ def account_form(request: Request):
         {
             "request": request, "user": user, "error": None, "success": False,
             "comment_notifications_enabled": database.get_comment_notifications_enabled(user["id"]),
+            "message_notifications_enabled": database.get_message_notifications_enabled(user["id"]),
         },
     )
+
+
+@app.post("/account/message-notifications")
+def account_message_notifications(request: Request, message_notifications: str = Form("")):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    database.set_message_notifications_enabled(user["id"], message_notifications == "1")
+    return RedirectResponse(url="/account", status_code=303)
+
+
+@app.post("/account/delete")
+def account_delete(request: Request, password: str = Form(...)):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    if not auth.verify_password(password, user["password_hash"]):
+        return templates.TemplateResponse(
+            "account.html",
+            {
+                "request": request, "user": user, "error": "비밀번호가 올바르지 않아 탈퇴할 수 없어요.", "success": False,
+                "comment_notifications_enabled": database.get_comment_notifications_enabled(user["id"]),
+                "message_notifications_enabled": database.get_message_notifications_enabled(user["id"]),
+            },
+        )
+    if user["is_admin"] and database.count_admins() <= 1:
+        return templates.TemplateResponse(
+            "account.html",
+            {
+                "request": request, "user": user,
+                "error": "마지막 남은 관리자 계정이라 탈퇴할 수 없어요. 다른 계정을 관리자로 먼저 지정해주세요.",
+                "success": False,
+                "comment_notifications_enabled": database.get_comment_notifications_enabled(user["id"]),
+                "message_notifications_enabled": database.get_message_notifications_enabled(user["id"]),
+            },
+        )
+    shutil.rmtree(UPLOAD_DIR / str(user["id"]), ignore_errors=True)
+    database.delete_user(user["id"])
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
 
 
 @app.post("/account/notifications")
@@ -170,26 +241,27 @@ def account_submit(
     if not user:
         return RedirectResponse(url="/login")
     notif = database.get_comment_notifications_enabled(user["id"])
+    msg_notif = database.get_message_notifications_enabled(user["id"])
 
     if not auth.verify_password(current_password, user["password_hash"]):
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "현재 비밀번호가 올바르지 않아요.", "success": False, "comment_notifications_enabled": notif},
+            {"request": request, "user": user, "error": "현재 비밀번호가 올바르지 않아요.", "success": False, "comment_notifications_enabled": notif, "message_notifications_enabled": msg_notif},
         )
     if len(new_password) < 4:
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "새 비밀번호는 4자 이상 입력해주세요.", "success": False, "comment_notifications_enabled": notif},
+            {"request": request, "user": user, "error": "새 비밀번호는 4자 이상 입력해주세요.", "success": False, "comment_notifications_enabled": notif, "message_notifications_enabled": msg_notif},
         )
     if new_password != new_password_confirm:
         return templates.TemplateResponse(
             "account.html",
-            {"request": request, "user": user, "error": "새 비밀번호가 서로 일치하지 않아요.", "success": False, "comment_notifications_enabled": notif},
+            {"request": request, "user": user, "error": "새 비밀번호가 서로 일치하지 않아요.", "success": False, "comment_notifications_enabled": notif, "message_notifications_enabled": msg_notif},
         )
 
     database.update_user_password(user["id"], auth.hash_password(new_password))
     return templates.TemplateResponse(
-        "account.html", {"request": request, "user": user, "error": None, "success": True, "comment_notifications_enabled": notif}
+        "account.html", {"request": request, "user": user, "error": None, "success": True, "comment_notifications_enabled": notif, "message_notifications_enabled": msg_notif}
     )
 
 
@@ -203,6 +275,8 @@ def settings_page(request: Request):
     if not user["is_admin"]:
         return RedirectResponse(url="/")
 
+    database.update_members_last_seen(user["id"])
+
     current_keys = {
         "ANTHROPIC_API_KEY": bool(settings.get("ANTHROPIC_API_KEY")),
         "GOOGLE_API_KEY": bool(settings.get("GOOGLE_API_KEY")),
@@ -212,13 +286,18 @@ def settings_page(request: Request):
     signup_enabled = settings.get_bool("SIGNUP_ENABLED", default=True)
     current_site_title = settings.get("SITE_TITLE", "우리 아이 일기장")
     current_theme_value = settings.get("THEME", "dark_umber")
+    current_diary_voice = settings.get("DIARY_VOICE", "guardian")
     logins = database.list_login_history(100)
+    members = database.list_users()
+    admin_count = database.count_admins()
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request, "user": user, "current_keys": current_keys,
             "guest_mode": guest_mode, "signup_enabled": signup_enabled,
             "current_theme_value": current_theme_value,
+            "current_diary_voice": current_diary_voice,
+            "members": members, "admin_count": admin_count,
             "restore_success": request.query_params.get("restore_success"),
             "restore_error": request.query_params.get("restore_error"),
             "current_site_title": current_site_title,
@@ -248,6 +327,16 @@ def settings_theme(request: Request, theme: str = Form("")):
         return RedirectResponse(url="/")
     if theme in VALID_THEMES:
         database.set_setting("THEME", theme)
+    return RedirectResponse(url="/settings#general", status_code=303)
+
+
+@app.post("/settings/diary-voice")
+def settings_diary_voice(request: Request, voice: str = Form("")):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    if voice in ("guardian", "dog"):
+        database.set_setting("DIARY_VOICE", voice)
     return RedirectResponse(url="/settings#general", status_code=303)
 
 
@@ -286,6 +375,39 @@ def settings_signup_mode(request: Request, enabled: str = Form("")):
         return RedirectResponse(url="/")
     database.set_setting("SIGNUP_ENABLED", "1" if enabled == "1" else "0")
     return RedirectResponse(url="/settings", status_code=303)
+
+
+# ---------- 회원 관리 (관리자 전용) ----------
+
+@app.post("/settings/members/{member_id}/toggle-admin")
+def settings_toggle_admin(request: Request, member_id: int):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    target = database.get_user_by_id(member_id)
+    if not target:
+        return RedirectResponse(url="/settings#members", status_code=303)
+    if target["is_admin"] and database.count_admins() <= 1:
+        # 마지막 남은 관리자는 해제할 수 없습니다.
+        return RedirectResponse(url="/settings#members", status_code=303)
+    database.set_user_admin(member_id, not target["is_admin"])
+    return RedirectResponse(url="/settings#members", status_code=303)
+
+
+@app.post("/settings/members/{member_id}/delete")
+def settings_delete_member(request: Request, member_id: int):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    target = database.get_user_by_id(member_id)
+    if not target:
+        return RedirectResponse(url="/settings#members", status_code=303)
+    if target["is_admin"] and database.count_admins() <= 1:
+        # 마지막 남은 관리자 계정은 삭제할 수 없습니다.
+        return RedirectResponse(url="/settings#members", status_code=303)
+    shutil.rmtree(UPLOAD_DIR / str(member_id), ignore_errors=True)
+    database.delete_user(member_id)
+    return RedirectResponse(url="/settings#members", status_code=303)
 
 
 # ---------- 백업 및 복구 ----------
@@ -509,6 +631,130 @@ def notice_delete(request: Request, notice_id: int):
     return RedirectResponse(url="/notices", status_code=303)
 
 
+# ---------- 쪽지 ----------
+
+@app.get("/messages")
+def messages_inbox(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    inbox = database.list_inbox(user["id"])
+    for m in inbox:
+        if not m["is_read"]:
+            database.mark_message_read(m["id"])
+    return templates.TemplateResponse(
+        "messages.html", {"request": request, "user": user, "messages": inbox, "box": "inbox"}
+    )
+
+
+@app.get("/messages/sent")
+def messages_sent(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    sent = database.list_sent(user["id"])
+    return templates.TemplateResponse(
+        "messages.html", {"request": request, "user": user, "messages": sent, "box": "sent"}
+    )
+
+
+@app.get("/messages/new")
+def message_new_form(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    recipients = database.list_other_users(user["id"])
+    to = request.query_params.get("to", "")
+    return templates.TemplateResponse(
+        "message_new.html",
+        {"request": request, "user": user, "recipients": recipients, "error": None, "preselect": to},
+    )
+
+
+@app.post("/messages/new")
+def message_new_submit(request: Request, recipient_id: int = Form(...), content: str = Form(...)):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    recipient = database.get_user_by_id(recipient_id)
+    content = content.strip()[:1000]
+    if not recipient or not content:
+        recipients = database.list_other_users(user["id"])
+        return templates.TemplateResponse(
+            "message_new.html",
+            {
+                "request": request, "user": user, "recipients": recipients,
+                "error": "받는 사람과 내용을 모두 입력해주세요.", "preselect": "",
+            },
+        )
+    database.send_message(user["id"], user["username"], recipient["id"], recipient["username"], content)
+    return RedirectResponse(url="/messages/sent", status_code=303)
+
+
+@app.post("/messages/{message_id}/delete")
+def message_delete(request: Request, message_id: int):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    message = database.get_message(message_id)
+    if not message:
+        return RedirectResponse(url="/messages", status_code=303)
+    if message["sender_id"] != user["id"] and message["recipient_id"] != user["id"]:
+        return RedirectResponse(url="/messages", status_code=303)
+    database.delete_message(message_id)
+    back = "sent" if message["sender_id"] == user["id"] else "inbox"
+    return RedirectResponse(url=f"/messages{'/sent' if back == 'sent' else ''}", status_code=303)
+
+
+# ---------- 가족 초대 ----------
+
+@app.get("/family")
+def family_page(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    token = database.get_or_create_invite_token(user["id"])
+    members = database.list_family_members(user["id"])
+    invite_url = str(request.base_url).rstrip("/") + f"/family/join/{token}"
+    return templates.TemplateResponse(
+        "family.html",
+        {"request": request, "user": user, "members": members, "invite_url": invite_url, "joined": request.query_params.get("joined")},
+    )
+
+
+@app.post("/family/invite/regenerate")
+def family_regenerate_invite(request: Request):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    database.regenerate_invite_token(user["id"])
+    return RedirectResponse(url="/family", status_code=303)
+
+
+@app.get("/family/join/{token}")
+def family_join(request: Request, token: str):
+    user = auth.get_current_user(request)
+    if not user:
+        request.session["post_login_redirect"] = f"/family/join/{token}"
+        return RedirectResponse(url="/login")
+    inviter = database.get_user_by_invite_token(token)
+    if not inviter:
+        return RedirectResponse(url="/family", status_code=303)
+    if inviter["id"] == user["id"]:
+        return RedirectResponse(url="/family", status_code=303)
+    database.add_family_link(inviter["id"], user["id"])
+    return RedirectResponse(url="/family?joined=1", status_code=303)
+
+
+@app.post("/family/{member_id}/remove")
+def family_remove(request: Request, member_id: int):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    database.remove_family_link(user["id"], member_id)
+    return RedirectResponse(url="/family", status_code=303)
+
+
 # ---------- 홈 ----------
 
 @app.get("/")
@@ -517,6 +763,7 @@ def home(request: Request):
     if not user:
         return RedirectResponse(url="/login")
     dogs = database.list_dogs(user["id"])
+    family_dogs = database.list_family_dogs(user["id"])
     dog_has_new_comment = {}
     if database.get_comment_notifications_enabled(user["id"]):
         for d in dogs:
@@ -526,7 +773,7 @@ def home(request: Request):
     return templates.TemplateResponse(
         "home.html",
         {
-            "request": request, "dogs": dogs, "user": user,
+            "request": request, "dogs": dogs, "family_dogs": family_dogs, "user": user,
             "latest_notice": database.get_latest_notice(),
             "dog_has_new_comment": dog_has_new_comment,
         },
@@ -805,8 +1052,13 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
     user = require_login(request)
     if not user:
         return RedirectResponse(url="/login")
-    dog = database.get_dog(user["id"], dog_id)
-    if dog:
+    dog = database.get_dog_for_viewing(user["id"], dog_id)
+    is_owner = bool(dog) and dog["user_id"] == user["id"]
+    dog_owner_username = None
+    if dog and not is_owner:
+        owner = database.get_user_by_id(dog["user_id"])
+        dog_owner_username = owner["username"] if owner else None
+    if dog and is_owner:
         database.update_dog_comments_seen(dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
     entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
@@ -819,6 +1071,8 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
             "request": request,
             "user": user,
             "dog": dog,
+            "is_owner": is_owner,
+            "dog_owner_username": dog_owner_username,
             "entries": entries,
             "entry_photos": entry_photos,
             "entry_reactions": entry_reactions,
@@ -1004,7 +1258,7 @@ def entry_react(request: Request, entry_id: int, emoji: str = Form(...)):
     entry = database.get_entry(entry_id)
     if not entry or emoji not in REACTION_EMOJIS:
         return JSONResponse({"error": "invalid"}, status_code=400)
-    dog = database.get_dog(user["id"], entry["dog_id"])
+    dog = database.get_dog_for_viewing(user["id"], entry["dog_id"])
     if not dog:
         return JSONResponse({"error": "forbidden"}, status_code=403)
     database.toggle_reaction(entry_id, user["id"], emoji)
@@ -1022,7 +1276,7 @@ def entry_comment_add(request: Request, entry_id: int, content: str = Form(...))
     entry = database.get_entry(entry_id)
     if not entry:
         return JSONResponse({"error": "not_found"}, status_code=404)
-    dog = database.get_dog(user["id"], entry["dog_id"])
+    dog = database.get_dog_for_viewing(user["id"], entry["dog_id"])
     if not dog:
         return JSONResponse({"error": "forbidden"}, status_code=403)
     content = content.strip()[:500]

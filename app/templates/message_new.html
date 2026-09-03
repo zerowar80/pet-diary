@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}쪽지 보내기{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/messages">&larr; 쪽지함</a>
+  <h1>쪽지 보내기</h1>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if recipients|length == 0 %}
+  <div class="empty-state">
+    <p>쪽지를 보낼 다른 회원이 아직 없어요.</p>
+  </div>
+  {% else %}
+  <form class="upload-form" action="/messages/new" method="post">
+    <label for="recipient_id">받는 사람</label>
+    <select id="recipient_id" name="recipient_id">
+      {% for r in recipients %}
+      <option value="{{ r['id'] }}" {% if preselect and preselect|string == r['id']|string %}selected{% endif %}>{{ r['username'] }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="content">내용</label>
+    <textarea id="content" name="content" rows="6" maxlength="1000" required></textarea>
+
+    <button type="submit">보내기</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

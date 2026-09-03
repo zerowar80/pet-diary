@@ -53,5 +53,29 @@
     {% endfor %}
   </div>
   {% endif %}
+
+  {% if family_dogs and family_dogs|length > 0 %}
+  <div class="album-header" style="margin-top:36px;">
+    <h1>가족의 반려견</h1>
+    <a class="edit-link" href="/family">가족 관리</a>
+  </div>
+  <div class="dog-grid">
+    {% for dog in family_dogs %}
+    <div class="dog-card">
+      <a class="dog-card-link" href="/dog/{{ dog['id'] }}">
+        {% if dog['profile_photo'] %}
+        <img class="dog-avatar dog-avatar-photo" src="/photos/{{ dog['profile_photo'] }}" alt="{{ dog['name'] }} 프로필" />
+        {% else %}
+        <div class="dog-avatar">{{ dog['name'][:2] }}</div>
+        {% endif %}
+        <div class="dog-info">
+          <p class="dog-name">{{ dog['name'] }}</p>
+          <p class="dog-meta">{{ dog['owner_username'] }}님의 아이 · 사진 {{ dog['photo_count'] }}장</p>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

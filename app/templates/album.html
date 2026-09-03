@@ -10,9 +10,9 @@
   <div class="album-header">
     <div>
       <h1>{{ dog['name'] }}의 일기</h1>
-      <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}</p>
+      <p class="sub">{{ dog['breed_guess'] or '견종 분석 중' }}{% if not is_owner and not guest and dog_owner_username %} · {{ dog_owner_username }}님의 아이{% endif %}</p>
     </div>
-    {% if not guest %}
+    {% if not guest and is_owner %}
     <div class="album-header-links">
       <a class="edit-link" href="/dog/{{ dog['id'] }}/highlight">월간 하이라이트</a>
       <a class="edit-link" href="/dog/{{ dog['id'] }}/song">노래 만들기</a>
@@ -28,7 +28,7 @@
   {% if entries|length == 0 %}
   <div class="empty-state">
     <p>아직 올라온 사진이 없어요.</p>
-    {% if not guest %}
+    {% if not guest and is_owner %}
     <a class="cta" href="/upload">사진 올리기</a>
     {% endif %}
   </div>
@@ -53,7 +53,7 @@
       <div class="entry-title-row">
         <span class="label-tag">TITLE.</span>
         <span class="title-value">{{ dog['name'] }}의 하루</span>
-        {% if not guest %}
+        {% if not guest and is_owner %}
         <a class="entry-manage-link" href="/entry/{{ entry['id'] }}/edit" aria-label="사진 관리">관리</a>
         <form class="entry-delete-form" action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
           <button type="submit" class="entry-delete-btn" aria-label="일기 삭제">✕</button>

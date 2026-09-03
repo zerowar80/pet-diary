@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}가족{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/">&larr; 전체 앨범</a>
+  <h1>가족</h1>
+  <p class="sub">초대 링크를 공유하면, 그 링크로 들어온 사람과 서로의 반려견 앨범을 함께 볼 수 있어요.</p>
+
+  {% if joined %}
+  <p class="notice">가족으로 연결됐어요! 홈 화면에서 함께 볼 수 있어요.</p>
+  {% endif %}
+
+  <h2 class="settings-section-title">내 초대 링크</h2>
+  <p class="hint">이 링크를 가족에게 보내주세요. 가족이 로그인한 상태로 이 링크를 열면 자동으로 연결돼요 (계정이 없으면 먼저 회원가입해야 해요).</p>
+  <div class="invite-link-box">
+    <input type="text" id="inviteUrl" value="{{ invite_url }}" readonly onclick="this.select()" />
+    <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('inviteUrl').value); this.textContent='복사됨!'">복사</button>
+  </div>
+  <form action="/family/invite/regenerate" method="post" onsubmit="return confirm('기존 링크는 더 이상 작동하지 않게 돼요. 새로 만들까요?');" style="margin-top:10px;">
+    <button type="submit" class="edit-link" style="background:none;border:none;cursor:pointer;">새 링크로 바꾸기</button>
+  </form>
+
+  <h2 class="settings-section-title">연결된 가족 ({{ members|length }}명)</h2>
+  {% if members|length == 0 %}
+  <p class="hint">아직 연결된 가족이 없어요.</p>
+  {% else %}
+  <div class="member-list">
+    {% for m in members %}
+    <div class="member-row">
+      <span class="member-username">{{ m['username'] }}</span>
+      <form action="/family/{{ m['id'] }}/remove" method="post" onsubmit="return confirm('{{ m['username'] }}님과 가족 연결을 끊을까요?');">
+        <button type="submit" class="entry-delete-btn">연결 끊기</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

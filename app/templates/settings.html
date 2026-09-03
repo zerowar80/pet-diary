@@ -9,6 +9,7 @@
     <button type="button" class="settings-tab-btn active" data-tab="general">일반</button>
     <button type="button" class="settings-tab-btn" data-tab="ai">AI 키</button>
     <button type="button" class="settings-tab-btn" data-tab="access">접근 관리</button>
+    <button type="button" class="settings-tab-btn nav-with-badge" data-tab="members">회원 관리{% if has_new_member(request) %}<span class="new-badge">N</span>{% endif %}</button>
     <button type="button" class="settings-tab-btn" data-tab="backup">백업/복구</button>
     <button type="button" class="settings-tab-btn" data-tab="logins">로그인 기록</button>
   </div>
@@ -45,6 +46,22 @@
           <input type="radio" name="theme" value="ocean" {% if current_theme_value == 'ocean' %}checked{% endif %} onchange="this.form.submit()">
           <span class="theme-swatch theme-swatch-ocean"></span>
           <span class="theme-option-name">오션</span>
+        </label>
+      </div>
+      <noscript><button type="submit">적용</button></noscript>
+    </form>
+
+    <h2 class="settings-section-title">일기 문체</h2>
+    <p class="hint">AI가 일기를 어떤 시점/말투로 쓸지 정할 수 있어요.</p>
+    <form class="theme-form" action="/settings/diary-voice" method="post">
+      <div class="theme-options">
+        <label class="theme-option voice-option">
+          <input type="radio" name="voice" value="guardian" {% if current_diary_voice == 'guardian' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-option-name">보호자 시점<br><small>"오늘 만두는 신나게 뛰어놀았어요"</small></span>
+        </label>
+        <label class="theme-option voice-option">
+          <input type="radio" name="voice" value="dog" {% if current_diary_voice == 'dog' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-option-name">강아지 1인칭<br><small>"오늘 나 완전 신났어! 신나게 뛰어놀았다~"</small></span>
         </label>
       </div>
       <noscript><button type="submit">적용</button></noscript>
@@ -92,6 +109,33 @@
       </label>
       <button type="submit">저장</button>
     </form>
+  </div>
+
+  <div class="settings-tab-panel" data-panel="members">
+    <h2 class="settings-section-title">회원 관리</h2>
+    <p class="hint">가입한 계정 {{ members|length }}명. 관리자 지정/해제, 계정 삭제를 할 수 있어요.</p>
+    <div class="member-list">
+      {% for m in members %}
+      <div class="member-row">
+        <div class="member-info">
+          <span class="member-username">{{ m['username'] }}{% if m['is_admin'] %}<span class="member-admin-tag">관리자</span>{% endif %}</span>
+          <span class="member-meta">가입일 {{ m['created_at'][:10] }} · 반려견 {{ m['dog_count'] }}마리</span>
+        </div>
+        <div class="member-actions">
+          <form action="/settings/members/{{ m['id'] }}/toggle-admin" method="post"
+                onsubmit="return confirm('{{ m['username'] }}님을 {{ '관리자에서 해제' if m['is_admin'] else '관리자로 지정' }}할까요?');">
+            <button type="submit" class="edit-link" style="background:none;border:none;cursor:pointer;" {% if m['is_admin'] and admin_count <= 1 %}disabled title="마지막 관리자는 해제할 수 없어요"{% endif %}>
+              {{ '관리자 해제' if m['is_admin'] else '관리자로 지정' }}
+            </button>
+          </form>
+          <form action="/settings/members/{{ m['id'] }}/delete" method="post"
+                onsubmit="return confirm('{{ m['username'] }}님의 계정과 모든 반려견/사진/일기를 완전히 삭제할까요? 되돌릴 수 없어요.');">
+            <button type="submit" class="entry-delete-btn" {% if m['is_admin'] and admin_count <= 1 %}disabled title="마지막 관리자는 삭제할 수 없어요"{% endif %}>계정 삭제</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
 
   <div class="settings-tab-panel" data-panel="backup">
