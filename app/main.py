@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTask
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import ai_providers, auth, database, settings, video_utils, weather
+from . import ai_providers, auth, database, polaroid, settings, video_utils, weather
 
 load_dotenv()
 
@@ -1148,6 +1148,44 @@ def dog_delete(request: Request, dog_id: int):
         shutil.rmtree(dog_folder, ignore_errors=True)
         database.delete_dog(user["id"], dog_id)
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/entry/{entry_id}/download")
+def entry_download(request: Request, entry_id: int):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    entry = database.get_entry(entry_id)
+    if not entry:
+        return RedirectResponse(url="/", status_code=303)
+    dog = database.get_dog_for_viewing(user["id"], entry["dog_id"])
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+
+    media = database.get_entry_photos(entry_id)
+    cover = media[0] if media else {"path": entry["photo_path"], "media_type": "photo"}
+    source_path = UPLOAD_DIR / cover["path"]
+
+    tmp_frame_path = None
+    if cover["media_type"] == "video":
+        tmp_frame_path = Path(tempfile.gettempdir()) / f"polaroid_frame_{uuid.uuid4().hex}.jpg"
+        if not video_utils.extract_thumbnail_frame(str(source_path), str(tmp_frame_path)):
+            tmp_frame_path = None
+        else:
+            source_path = tmp_frame_path
+
+    output_path = Path(tempfile.gettempdir()) / f"polaroid_{uuid.uuid4().hex}.jpg"
+    try:
+        polaroid.create_polaroid(
+            source_path, dog["name"], entry["created_at"][:10], entry["diary_text"] or "", output_path
+        )
+    finally:
+        if tmp_frame_path:
+            tmp_frame_path.unlink(missing_ok=True)
+
+    cleanup = BackgroundTask(lambda: output_path.unlink(missing_ok=True))
+    filename = f"{dog['name']}_{entry['created_at'][:10]}.jpg"
+    return FileResponse(output_path, filename=filename, media_type="image/jpeg", background=cleanup)
 
 
 @app.post("/entry/{entry_id}/delete")

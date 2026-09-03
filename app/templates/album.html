@@ -53,6 +53,7 @@
       <div class="entry-title-row">
         <span class="label-tag">TITLE.</span>
         <span class="title-value">{{ dog['name'] }}의 하루</span>
+        <a class="entry-manage-link" href="/entry/{{ entry['id'] }}/download" aria-label="폴라로이드로 다운로드">다운로드</a>
         {% if not guest and is_owner %}
         <a class="entry-manage-link" href="/entry/{{ entry['id'] }}/edit" aria-label="사진 관리">관리</a>
         <form class="entry-delete-form" action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
