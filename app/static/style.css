@@ -659,8 +659,44 @@ h1 { font-size: 32px; }
 }
 
 .settings-section-title {
-  margin-top: 36px;
+  margin-top: 8px;
   font-size: 18px;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 20px 0 8px;
+  border-bottom: 1px solid var(--umber-light);
+  padding-bottom: 2px;
+}
+
+.settings-tab-btn {
+  background: none;
+  border: none;
+  color: var(--cream);
+  opacity: 0.55;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 14px;
+  border-radius: 999px 999px 0 0;
+  cursor: pointer;
+}
+
+.settings-tab-btn.active {
+  opacity: 1;
+  background: var(--umber-light);
+  font-weight: 500;
+}
+
+.settings-tab-panel {
+  display: none;
+  padding-top: 8px;
+}
+
+.settings-tab-panel.active {
+  display: block;
 }
 
 .login-history-list {
