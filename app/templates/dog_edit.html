@@ -17,7 +17,19 @@
   <p class="error">{{ error }}</p>
   {% endif %}
 
-  <form class="upload-form" action="/dog/{{ dog['id'] }}/edit" method="post">
+  <form class="upload-form" action="/dog/{{ dog['id'] }}/edit" method="post" enctype="multipart/form-data">
+    {% if dog['profile_photo'] %}
+    <label>현재 프로필 사진</label>
+    <img class="profile-photo-preview" src="/photos/{{ dog['profile_photo'] }}" alt="{{ dog['name'] }} 프로필" />
+    <label class="checkbox-row" for="remove_profile_photo">
+      <input type="checkbox" id="remove_profile_photo" name="remove_profile_photo" value="1" />
+      프로필 사진 삭제하기
+    </label>
+    {% endif %}
+
+    <label for="profile_photo_input">{{ '새 프로필 사진으로 바꾸기' if dog['profile_photo'] else '프로필 사진 추가 (선택)' }}</label>
+    <input type="file" id="profile_photo_input" name="profile_photo" accept="image/*" />
+
     <label for="name">이름</label>
     <input type="text" id="name" name="name" value="{{ dog['name'] }}" required />
 

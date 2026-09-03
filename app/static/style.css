@@ -152,6 +152,20 @@ h1 { font-size: 32px; }
   flex-shrink: 0;
 }
 
+.dog-avatar-photo {
+  object-fit: cover;
+  border: 1.5px solid var(--mustard);
+}
+
+.profile-photo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--mustard);
+  margin: 4px 0 10px;
+}
+
 .dog-name {
   font-weight: 500;
   margin: 0;

@@ -139,6 +139,12 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
+    # 반려견 프로필 사진을 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE dogs ADD COLUMN profile_photo TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
     # 기존에 만들어둔 DB(media_type 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entry_photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
@@ -267,7 +273,7 @@ def list_dogs(user_id: int):
     conn = get_conn()
     rows = conn.execute(
         """
-        SELECT dogs.id, dogs.name, dogs.breed_guess, COUNT(entries.id) as photo_count
+        SELECT dogs.id, dogs.name, dogs.breed_guess, dogs.profile_photo, COUNT(entries.id) as photo_count
         FROM dogs
         LEFT JOIN entries ON entries.dog_id = dogs.id
         WHERE dogs.user_id = ?
@@ -294,6 +300,17 @@ def update_dog(user_id: int, dog_id: int, name: str, breed_guess: str | None):
     conn.execute(
         "UPDATE dogs SET name = ?, breed_guess = ? WHERE id = ? AND user_id = ?",
         (name, breed_guess, dog_id, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_dog_profile_photo(user_id: int, dog_id: int, photo_path: str | None):
+    """photo_path가 None이면 프로필 사진을 지웁니다."""
+    conn = get_conn()
+    conn.execute(
+        "UPDATE dogs SET profile_photo = ? WHERE id = ? AND user_id = ?",
+        (photo_path, dog_id, user_id),
     )
     conn.commit()
     conn.close()

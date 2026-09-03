@@ -815,17 +815,44 @@ def dog_edit_form(request: Request, dog_id: int):
 
 
 @app.post("/dog/{dog_id}/edit")
-def dog_edit_submit(request: Request, dog_id: int, name: str = Form(...), breed_guess: str = Form("")):
+async def dog_edit_submit(
+    request: Request,
+    dog_id: int,
+    name: str = Form(...),
+    breed_guess: str = Form(""),
+    profile_photo: UploadFile = None,
+    remove_profile_photo: str = Form(""),
+):
     user = require_login(request)
     if not user:
         return RedirectResponse(url="/login")
     name = name.strip()
     dog = database.get_dog(user["id"], dog_id)
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
     if not name:
         return templates.TemplateResponse(
             "dog_edit.html", {"request": request, "user": user, "dog": dog, "error": "이름을 입력해주세요."}
         )
     database.update_dog(user["id"], dog_id, name, breed_guess.strip() or None)
+
+    if remove_profile_photo == "1":
+        if dog["profile_photo"]:
+            (UPLOAD_DIR / dog["profile_photo"]).unlink(missing_ok=True)
+        database.set_dog_profile_photo(user["id"], dog_id, None)
+    elif profile_photo is not None and profile_photo.filename:
+        user_folder = UPLOAD_DIR / str(user["id"]) / name
+        user_folder.mkdir(parents=True, exist_ok=True)
+        ext = Path(profile_photo.filename).suffix or ".jpg"
+        saved_name = f"profile_{uuid.uuid4().hex}{ext}"
+        saved_path = user_folder / saved_name
+        with saved_path.open("wb") as f:
+            shutil.copyfileobj(profile_photo.file, f)
+        if dog["profile_photo"]:
+            (UPLOAD_DIR / dog["profile_photo"]).unlink(missing_ok=True)
+        relative_path = f"{user['id']}/{name}/{saved_name}"
+        database.set_dog_profile_photo(user["id"], dog_id, relative_path)
+
     return RedirectResponse(url=f"/dog/{dog_id}", status_code=303)
 
 

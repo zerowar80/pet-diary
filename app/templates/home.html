@@ -33,7 +33,11 @@
     {% for dog in dogs %}
     <div class="dog-card">
       <a class="dog-card-link" href="{{ '/guest/dog/' if guest else '/dog/' }}{{ dog['id'] }}">
+        {% if dog['profile_photo'] %}
+        <img class="dog-avatar dog-avatar-photo" src="/photos/{{ dog['profile_photo'] }}" alt="{{ dog['name'] }} 프로필" />
+        {% else %}
         <div class="dog-avatar">{{ dog['name'][:2] }}</div>
+        {% endif %}
         <div class="dog-info">
           <p class="dog-name">{{ dog['name'] }}</p>
           <p class="dog-meta">{{ dog['breed_guess'] or '견종 분석 중' }} · 사진 {{ dog['photo_count'] }}장</p>
