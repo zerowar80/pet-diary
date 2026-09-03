@@ -4,6 +4,9 @@
 회원가입/로그인이 있어 각자 자신의 반려견 앨범만 관리하며, 반려견은 이름 제한 없이 자유롭게 추가·수정·삭제할 수 있습니다.
 일기를 생성할 AI는 업로드할 때마다 Claude / Gemini / ChatGPT 중 골라 쓸 수 있습니다.
 
+<img width="691" height="943" alt="스크린샷 2026-09-03 115113" src="https://github.com/user-attachments/assets/8a6c00cf-e8d6-46d9-9d29-36baa59f62e0" />
+
+
 설치 방법은 두 가지입니다.
 - **A. Docker Compose** — 일반 서버/NAS에서 가장 간단
 - **B. Proxmox LXC (네이티브 설치)** — Docker 중첩 없이 LXC 안에서 바로 실행, 더 가볍습니다
