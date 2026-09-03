@@ -341,7 +341,11 @@ def guest_home(request: Request):
         return RedirectResponse(url="/login")
     dogs = database.list_dogs(admin["id"])
     return templates.TemplateResponse(
-        "home.html", {"request": request, "dogs": dogs, "user": None, "guest": True}
+        "home.html",
+        {
+            "request": request, "dogs": dogs, "user": None, "guest": True,
+            "latest_notice": database.get_latest_notice(),
+        },
     )
 
 
@@ -484,7 +488,7 @@ def home(request: Request):
         return RedirectResponse(url="/login")
     dogs = database.list_dogs(user["id"])
     return templates.TemplateResponse(
-        "home.html", {"request": request, "dogs": dogs, "user": user}
+        "home.html", {"request": request, "dogs": dogs, "user": user, "latest_notice": database.get_latest_notice()}
     )
 
 

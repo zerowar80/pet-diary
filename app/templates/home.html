@@ -2,6 +2,16 @@
 {% block title %}우리 아이들 - 사진 일기장{% endblock %}
 {% block content %}
 <section class="page">
+  {% if latest_notice %}
+  <a class="notice-marquee" href="/notices/{{ latest_notice['id'] }}">
+    <span class="notice-marquee-label">공지</span>
+    <span class="notice-marquee-track">
+      <span class="notice-marquee-text">📢 {{ latest_notice['title'] }}</span>
+      <span class="notice-marquee-text" aria-hidden="true">📢 {{ latest_notice['title'] }}</span>
+    </span>
+  </a>
+  {% endif %}
+
   <div class="album-header">
     <h1>우리 아이들</h1>
     {% if not guest %}

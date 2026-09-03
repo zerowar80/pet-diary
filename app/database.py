@@ -551,6 +551,13 @@ def get_latest_notice_created_at():
     return row["latest"] if row else None
 
 
+def get_latest_notice():
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM notices ORDER BY created_at DESC LIMIT 1").fetchone()
+    conn.close()
+    return row
+
+
 def get_notices_last_seen(user_id: int):
     conn = get_conn()
     row = conn.execute("SELECT notices_last_seen_at FROM users WHERE id = ?", (user_id,)).fetchone()

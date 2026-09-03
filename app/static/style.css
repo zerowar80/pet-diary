@@ -1033,3 +1033,44 @@ h1 { font-size: 32px; }
   cursor: pointer;
   white-space: nowrap;
 }
+
+/* ---------- 홈 화면 공지 흐름 배너 ---------- */
+.notice-marquee {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--umber-light);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.notice-marquee-label {
+  flex-shrink: 0;
+  background: var(--mustard);
+  color: var(--umber);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.notice-marquee-track {
+  display: flex;
+  white-space: nowrap;
+  animation: notice-marquee-scroll 14s linear infinite;
+  min-width: 100%;
+}
+
+.notice-marquee-text {
+  color: var(--cream);
+  font-size: 13px;
+  padding-right: 60px;
+}
+
+@keyframes notice-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
