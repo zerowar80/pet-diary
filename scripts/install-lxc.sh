@@ -143,7 +143,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${APP_DIR}/.env
-ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}
+ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT} --workers 2
 Restart=on-failure
 RestartSec=3
 
