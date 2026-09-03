@@ -604,8 +604,8 @@ def entry_delete(request: Request, entry_id: int):
     if entry:
         dog = database.get_dog(user["id"], entry["dog_id"])
         if dog:
-            for photo_path in database.get_entry_photos(entry_id):
-                (UPLOAD_DIR / photo_path).unlink(missing_ok=True)
+            for media in database.get_entry_photos(entry_id):
+                (UPLOAD_DIR / media["path"]).unlink(missing_ok=True)
             database.delete_entry(entry_id)
             return RedirectResponse(url=f"/dog/{dog['id']}", status_code=303)
     return RedirectResponse(url="/", status_code=303)
