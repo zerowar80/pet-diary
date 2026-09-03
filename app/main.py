@@ -1183,7 +1183,8 @@ def entry_download(request: Request, entry_id: int):
     output_path = Path(tempfile.gettempdir()) / f"polaroid_{uuid.uuid4().hex}.jpg"
     try:
         polaroid.create_polaroid(
-            photo_paths, dog["name"], entry["created_at"][:10], entry["diary_text"] or "", output_path
+            photo_paths, dog["name"], entry["created_at"][:10], entry["diary_text"] or "", output_path,
+            weather_emoji=entry["weather_icon"],
         )
     finally:
         if tmp_frame_path:
