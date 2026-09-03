@@ -19,7 +19,10 @@
   <div class="notice-list">
     {% for notice in notices %}
     <a class="notice-row" href="/notices/{{ notice['id'] }}">
-      <span class="notice-title">{{ notice['title'] }}</span>
+      <span class="notice-title">
+        {{ notice['title'] }}
+        {% if new_cutoff and notice['created_at'] > new_cutoff %}<span class="new-badge new-badge-inline">NEW</span>{% endif %}
+      </span>
       <span class="notice-date">{{ notice['created_at'][:10] }}</span>
     </a>
     {% endfor %}

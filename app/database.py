@@ -133,6 +133,12 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
+    # 공지사항 '새 글' 배지를 위한 마이그레이션
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN notices_last_seen_at TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # 이미 컬럼이 있으면 무시
     # 기존에 만들어둔 DB(media_type 컬럼이 없는 이전 버전)를 위한 마이그레이션
     try:
         conn.execute("ALTER TABLE entry_photos ADD COLUMN media_type TEXT DEFAULT 'photo'")
@@ -534,6 +540,29 @@ def update_notice(notice_id: int, title: str, content: str):
 def delete_notice(notice_id: int):
     conn = get_conn()
     conn.execute("DELETE FROM notices WHERE id = ?", (notice_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_latest_notice_created_at():
+    conn = get_conn()
+    row = conn.execute("SELECT MAX(created_at) as latest FROM notices").fetchone()
+    conn.close()
+    return row["latest"] if row else None
+
+
+def get_notices_last_seen(user_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT notices_last_seen_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return row["notices_last_seen_at"] if row else None
+
+
+def update_notices_last_seen(user_id: int):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE users SET notices_last_seen_at = datetime('now') WHERE id = ?", (user_id,)
+    )
     conn.commit()
     conn.close()
 

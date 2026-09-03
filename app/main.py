@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -36,6 +36,22 @@ templates.env.globals["AI_PROVIDERS"] = ai_providers.PROVIDERS
 templates.env.globals["APP_VERSION"] = APP_VERSION
 templates.env.globals["site_title"] = lambda: settings.get("SITE_TITLE", "우리 아이 일기장")
 templates.env.globals["REACTION_EMOJIS"] = REACTION_EMOJIS
+
+
+def _has_new_notice(request: Request) -> bool:
+    user = auth.get_current_user(request)
+    if not user:
+        return False
+    latest = database.get_latest_notice_created_at()
+    if not latest:
+        return False
+    last_seen = database.get_notices_last_seen(user["id"])
+    if not last_seen:
+        return True
+    return latest > last_seen
+
+
+templates.env.globals["has_new_notice"] = _has_new_notice
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 app.mount("/photos", StaticFiles(directory=str(UPLOAD_DIR)), name="photos")
@@ -369,9 +385,13 @@ def notices_list(request: Request):
     user, guest = _can_view_notices(request)
     if user is None and not guest:
         return RedirectResponse(url="/login")
+    if user:
+        database.update_notices_last_seen(user["id"])
     notices = database.list_notices()
+    new_cutoff = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
     return templates.TemplateResponse(
-        "notices.html", {"request": request, "user": user, "guest": guest, "notices": notices}
+        "notices.html",
+        {"request": request, "user": user, "guest": guest, "notices": notices, "new_cutoff": new_cutoff},
     )
 
 

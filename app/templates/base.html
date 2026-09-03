@@ -15,7 +15,7 @@
     <div class="topbar-right">
       <span class="username">{{ user['username'] }}님</span>
       <a class="new-entry-btn" href="/upload">사진 올리기</a>
-      <a class="logout-link" href="/notices">공지사항</a>
+      <a class="logout-link nav-with-badge" href="/notices">공지사항{% if has_new_notice(request) %}<span class="new-badge">N</span>{% endif %}</a>
       {% if user['is_admin'] %}
       <a class="logout-link" href="/settings">설정</a>
       {% endif %}
@@ -25,7 +25,7 @@
     {% elif guest %}
     <div class="topbar-right">
       <span class="username">게스트로 보는 중</span>
-      <a class="logout-link" href="/notices">공지사항</a>
+      <a class="logout-link nav-with-badge" href="/notices">공지사항{% if has_new_notice(request) %}<span class="new-badge">N</span>{% endif %}</a>
       <a class="logout-link" href="/login">로그인</a>
     </div>
     {% endif %}
