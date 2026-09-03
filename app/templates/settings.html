@@ -21,6 +21,34 @@
       <input type="text" id="site_title" name="site_title" value="{{ current_site_title }}" maxlength="30" required />
       <button type="submit">저장</button>
     </form>
+
+    <h2 class="settings-section-title">테마</h2>
+    <p class="hint">전체 화면 색상 테마를 바꿀 수 있어요. 일기 카드는 어떤 테마든 종이 색은 그대로 유지돼요.</p>
+    <form class="theme-form" action="/settings/theme" method="post">
+      <div class="theme-options">
+        <label class="theme-option">
+          <input type="radio" name="theme" value="dark_umber" {% if current_theme_value == 'dark_umber' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-swatch theme-swatch-dark_umber"></span>
+          <span class="theme-option-name">다크 (기본)</span>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="light_cream" {% if current_theme_value == 'light_cream' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-swatch theme-swatch-light_cream"></span>
+          <span class="theme-option-name">라이트</span>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="forest" {% if current_theme_value == 'forest' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-swatch theme-swatch-forest"></span>
+          <span class="theme-option-name">포레스트</span>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="ocean" {% if current_theme_value == 'ocean' %}checked{% endif %} onchange="this.form.submit()">
+          <span class="theme-swatch theme-swatch-ocean"></span>
+          <span class="theme-option-name">오션</span>
+        </label>
+      </div>
+      <noscript><button type="submit">적용</button></noscript>
+    </form>
   </div>
 
   <div class="settings-tab-panel" data-panel="ai">

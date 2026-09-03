@@ -35,6 +35,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 templates.env.globals["AI_PROVIDERS"] = ai_providers.PROVIDERS
 templates.env.globals["APP_VERSION"] = APP_VERSION
 templates.env.globals["site_title"] = lambda: settings.get("SITE_TITLE", "우리 아이 일기장")
+templates.env.globals["current_theme"] = lambda: settings.get("THEME", "dark_umber")
 templates.env.globals["REACTION_EMOJIS"] = REACTION_EMOJIS
 
 
@@ -196,12 +197,14 @@ def settings_page(request: Request):
     guest_mode = settings.get_bool("GUEST_MODE_ENABLED")
     signup_enabled = settings.get_bool("SIGNUP_ENABLED", default=True)
     current_site_title = settings.get("SITE_TITLE", "우리 아이 일기장")
+    current_theme_value = settings.get("THEME", "dark_umber")
     logins = database.list_login_history(100)
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request, "user": user, "current_keys": current_keys,
             "guest_mode": guest_mode, "signup_enabled": signup_enabled,
+            "current_theme_value": current_theme_value,
             "restore_success": request.query_params.get("restore_success"),
             "restore_error": request.query_params.get("restore_error"),
             "current_site_title": current_site_title,
@@ -219,6 +222,19 @@ def settings_site_title(request: Request, site_title: str = Form("")):
     if site_title:
         database.set_setting("SITE_TITLE", site_title)
     return RedirectResponse(url="/settings", status_code=303)
+
+
+VALID_THEMES = {"dark_umber", "light_cream", "forest", "ocean"}
+
+
+@app.post("/settings/theme")
+def settings_theme(request: Request, theme: str = Form("")):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    if theme in VALID_THEMES:
+        database.set_setting("THEME", theme)
+    return RedirectResponse(url="/settings#general", status_code=303)
 
 
 @app.post("/settings/ai-keys")

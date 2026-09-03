@@ -5,9 +5,11 @@
   {% if latest_notice %}
   <a class="notice-marquee" href="/notices/{{ latest_notice['id'] }}">
     <span class="notice-marquee-label">공지</span>
-    <span class="notice-marquee-track">
-      <span class="notice-marquee-text">📢 {{ latest_notice['title'] }}</span>
-      <span class="notice-marquee-text" aria-hidden="true">📢 {{ latest_notice['title'] }}</span>
+    <span class="notice-marquee-viewport">
+      <span class="notice-marquee-track">
+        <span class="notice-marquee-text">📢 {{ latest_notice['title'] }}</span>
+        <span class="notice-marquee-text" aria-hidden="true">📢 {{ latest_notice['title'] }}</span>
+      </span>
     </span>
   </a>
   {% endif %}
