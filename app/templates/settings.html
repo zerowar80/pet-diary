@@ -34,6 +34,16 @@
   <p class="hint">http(s)://이서버주소/guest</p>
   {% endif %}
 
+  <h2 class="settings-section-title">회원가입</h2>
+  <p class="hint">꺼두면 가입 화면에 "지금은 신규 가입을 막아두었어요"라고 뜨고, 새 계정을 만들 수 없어요. 가족 계정을 다 만든 뒤 꺼두면 됩니다. (계정이 하나도 없을 때는 이 설정과 상관없이 항상 첫 계정은 만들 수 있어요.)</p>
+  <form class="upload-form" action="/settings/signup-mode" method="post">
+    <label class="checkbox-row" for="signup_enabled">
+      <input type="checkbox" id="signup_enabled" name="enabled" value="1" {% if signup_enabled %}checked{% endif %} />
+      새 회원가입 허용
+    </label>
+    <button type="submit">저장</button>
+  </form>
+
   <h2 class="settings-section-title">로그인 기록</h2>
   <p class="hint">최근 {{ logins|length }}건 (IP 주소 포함)</p>
   {% if logins|length == 0 %}

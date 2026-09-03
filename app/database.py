@@ -53,6 +53,17 @@ def init_db():
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS entry_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            photo_path TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (entry_id) REFERENCES entries (id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT
@@ -83,6 +94,14 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass  # 이미 컬럼이 있으면 무시
+    # entry_photos 테이블이 새로 생긴 경우, 기존 entries.photo_path를 채워넣습니다.
+    conn.execute(
+        """
+        INSERT INTO entry_photos (entry_id, photo_path, sort_order)
+        SELECT id, photo_path, 0 FROM entries
+        WHERE id NOT IN (SELECT DISTINCT entry_id FROM entry_photos)
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -238,14 +257,34 @@ def delete_dog(user_id: int, dog_id: int):
 
 # ---------- entries ----------
 
-def add_entry(dog_id: int, photo_path: str, diary_text: str, ai_provider: str, weather_icon: str | None = None):
+def add_entry(dog_id: int, photo_paths: list[str], diary_text: str, ai_provider: str, weather_icon: str | None = None) -> int:
+    """photo_paths: 이 일기에 포함될 사진 경로 목록 (1장이어도 리스트로 전달). 첫 번째 사진이 대표 사진이 됩니다."""
     conn = get_conn()
-    conn.execute(
+    cover_photo = photo_paths[0]
+    cur = conn.execute(
         "INSERT INTO entries (dog_id, photo_path, diary_text, ai_provider, weather_icon) VALUES (?, ?, ?, ?, ?)",
-        (dog_id, photo_path, diary_text, ai_provider, weather_icon),
+        (dog_id, cover_photo, diary_text, ai_provider, weather_icon),
     )
+    entry_id = cur.lastrowid
+    for order, path in enumerate(photo_paths):
+        conn.execute(
+            "INSERT INTO entry_photos (entry_id, photo_path, sort_order) VALUES (?, ?, ?)",
+            (entry_id, path, order),
+        )
     conn.commit()
     conn.close()
+    return entry_id
+
+
+def get_entry_photos(entry_id: int) -> list[str]:
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT photo_path FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    paths = [row["photo_path"] for row in rows]
+    return paths
 
 
 def list_entries_for_dog(dog_id: int):

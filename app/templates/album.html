@@ -53,8 +53,10 @@
         </form>
         {% endif %}
       </div>
-      <div class="entry-photo-box">
-        <img src="/photos/{{ entry['photo_path'] }}" alt="{{ dog['name'] }} 사진" />
+      <div class="entry-photo-box{% if entry_photos.get(entry['id'])|length > 1 %} multi{% endif %}">
+        {% for photo_path in entry_photos.get(entry['id'], [entry['photo_path']]) %}
+        <img src="/photos/{{ photo_path }}" alt="{{ dog['name'] }} 사진" />
+        {% endfor %}
       </div>
       <div class="entry-diary-box">
         <p class="entry-text">{{ entry['diary_text'] }}</p>

@@ -19,6 +19,13 @@ def generate_diary_entry(photo_path: str, dog_name: str, provider: str) -> tuple
     return _module_for(provider).generate(photo_path, dog_name)
 
 
+def generate_diary_entry_multi(photo_paths: list[str], dog_name: str, provider: str) -> tuple[str, str]:
+    """여러 장의 사진을 한 번에 보고 하나의 일기로 만들어줍니다."""
+    prompt = common.build_multi_prompt(dog_name, len(photo_paths))
+    text = _module_for(provider).generate_text(prompt, image_paths=photo_paths)
+    return common.parse_response(text)
+
+
 def generate_monthly_highlight(dog_name: str, month: str, diary_texts: list[str], provider: str) -> str:
     prompt = common.build_highlight_prompt(dog_name, month, diary_texts)
     return _module_for(provider).generate_text(prompt)

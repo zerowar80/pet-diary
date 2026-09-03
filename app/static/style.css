@@ -302,6 +302,17 @@ h1 { font-size: 32px; }
   display: block;
 }
 
+.entry-photo-box.multi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.entry-photo-box.multi img {
+  max-height: none;
+  height: 140px;
+}
+
 .entry-diary-box {
   padding: 18px 16px 16px;
   background-color: #FFFDF8;

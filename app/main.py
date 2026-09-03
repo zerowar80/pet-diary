@@ -51,27 +51,34 @@ def require_login(request: Request):
 def signup_form(request: Request):
     if require_login(request):
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("signup.html", {"request": request, "error": None})
+    signup_open = database.count_users() == 0 or settings.get_bool("SIGNUP_ENABLED", default=True)
+    return templates.TemplateResponse("signup.html", {"request": request, "error": None, "closed": not signup_open})
 
 
 @app.post("/signup")
 def signup_submit(request: Request, username: str = Form(...), password: str = Form(...), password_confirm: str = Form(...)):
+    signup_open = database.count_users() == 0 or settings.get_bool("SIGNUP_ENABLED", default=True)
+    if not signup_open:
+        return templates.TemplateResponse(
+            "signup.html", {"request": request, "error": None, "closed": True}
+        )
+
     username = username.strip()
     if len(username) < 2:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "아이디는 2자 이상 입력해주세요."}
+            "signup.html", {"request": request, "error": "아이디는 2자 이상 입력해주세요.", "closed": False}
         )
     if len(password) < 4:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "비밀번호는 4자 이상 입력해주세요."}
+            "signup.html", {"request": request, "error": "비밀번호는 4자 이상 입력해주세요.", "closed": False}
         )
     if password != password_confirm:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "비밀번호가 서로 일치하지 않아요."}
+            "signup.html", {"request": request, "error": "비밀번호가 서로 일치하지 않아요.", "closed": False}
         )
     if database.get_user_by_username(username):
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "이미 사용 중인 아이디예요."}
+            "signup.html", {"request": request, "error": "이미 사용 중인 아이디예요.", "closed": False}
         )
 
     user_id = database.create_user(username, auth.hash_password(password), is_admin=(database.count_users() == 0))
@@ -164,12 +171,14 @@ def settings_page(request: Request):
         "OPENAI_API_KEY": bool(settings.get("OPENAI_API_KEY")),
     }
     guest_mode = settings.get_bool("GUEST_MODE_ENABLED")
+    signup_enabled = settings.get_bool("SIGNUP_ENABLED", default=True)
     logins = database.list_login_history(100)
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request, "user": user, "current_keys": current_keys,
-            "guest_mode": guest_mode, "logins": logins, "saved": False,
+            "guest_mode": guest_mode, "signup_enabled": signup_enabled,
+            "logins": logins, "saved": False,
         },
     )
 
@@ -202,6 +211,15 @@ def settings_guest_mode(request: Request, enabled: str = Form("")):
     return RedirectResponse(url="/settings", status_code=303)
 
 
+@app.post("/settings/signup-mode")
+def settings_signup_mode(request: Request, enabled: str = Form("")):
+    user = require_login(request)
+    if not user or not user["is_admin"]:
+        return RedirectResponse(url="/")
+    database.set_setting("SIGNUP_ENABLED", "1" if enabled == "1" else "0")
+    return RedirectResponse(url="/settings", status_code=303)
+
+
 # ---------- 게스트 모드 (로그인 없이 보기 전용) ----------
 
 @app.get("/guest")
@@ -226,11 +244,12 @@ def guest_dog_album(request: Request, dog_id: int):
         return RedirectResponse(url="/login")
     dog = database.get_dog(admin["id"], dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
+    entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
     return templates.TemplateResponse(
         "album.html",
         {
             "request": request, "user": None, "dog": dog, "entries": entries,
-            "uploaded": 0, "failed": 0, "guest": True,
+            "entry_photos": entry_photos, "uploaded": 0, "failed": 0, "guest": True,
         },
     )
 
@@ -298,6 +317,7 @@ async def upload_photo(
     dog_name: str = Form(""),
     ai_provider: str = Form(...),
     auto_identify: str = Form(""),
+    bundle_photos: str = Form(""),
     photos: list[UploadFile] = None,
 ):
     user = require_login(request)
@@ -306,6 +326,7 @@ async def upload_photo(
 
     dog_name = dog_name.strip()
     auto_identify = auto_identify == "1"
+    bundle_photos = bundle_photos == "1"
     dogs = database.list_dogs(user["id"])
     photos = [p for p in (photos or []) if p and p.filename]
 
@@ -365,11 +386,10 @@ async def upload_photo(
     user_folder = UPLOAD_DIR / str(user["id"]) / dog_name
     user_folder.mkdir(parents=True, exist_ok=True)
 
-    dog_id = None
-    success_count = 0
-    fail_count = 0
     weather_icon = weather.get_current_weather_emoji()
 
+    # 1) 사진 파일들을 먼저 전부 저장합니다.
+    saved = []  # [(절대경로, DB에 저장할 상대경로), ...]
     for index, photo in enumerate(photos):
         ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
         saved_name = f"{uuid.uuid4().hex}{ext}"
@@ -381,16 +401,38 @@ async def upload_photo(
             with saved_path.open("wb") as f:
                 shutil.copyfileobj(photo.file, f)
 
+        relative_path = f"{user['id']}/{dog_name}/{saved_name}"
+        saved.append((saved_path, relative_path))
+
+    dog_id = None
+    success_count = 0
+    fail_count = 0
+
+    if bundle_photos and len(saved) > 1:
+        # 2-A) 여러 장을 하나의 일기로 묶어서 AI에게 한 번에 보여줍니다.
+        abs_paths = [str(s[0]) for s in saved]
         try:
-            breed_guess, diary_text = ai_providers.generate_diary_entry(str(saved_path), dog_name, ai_provider)
-            success_count += 1
+            breed_guess, diary_text = ai_providers.generate_diary_entry_multi(abs_paths, dog_name, ai_provider)
+            success_count = len(saved)
         except Exception as exc:  # noqa: BLE001
             breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
-            fail_count += 1
+            fail_count = len(saved)
 
         dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
-        relative_path = f"{user['id']}/{dog_name}/{saved_name}"
-        database.add_entry(dog_id, relative_path, diary_text, ai_provider, weather_icon)
+        relative_paths = [s[1] for s in saved]
+        database.add_entry(dog_id, relative_paths, diary_text, ai_provider, weather_icon)
+    else:
+        # 2-B) 사진마다 각각 별도의 일기를 만듭니다.
+        for saved_path, relative_path in saved:
+            try:
+                breed_guess, diary_text = ai_providers.generate_diary_entry(str(saved_path), dog_name, ai_provider)
+                success_count += 1
+            except Exception as exc:  # noqa: BLE001
+                breed_guess, diary_text = None, f"(AI 일기 생성 실패: {exc})"
+                fail_count += 1
+
+            dog_id = database.get_or_create_dog(user["id"], dog_name, breed_guess)
+            database.add_entry(dog_id, [relative_path], diary_text, ai_provider, weather_icon)
 
     if dog_id is None:
         return RedirectResponse(url="/upload", status_code=303)
@@ -408,6 +450,7 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
         return RedirectResponse(url="/login")
     dog = database.get_dog(user["id"], dog_id)
     entries = database.list_entries_for_dog(dog_id) if dog else []
+    entry_photos = {e["id"]: database.get_entry_photos(e["id"]) for e in entries}
     return templates.TemplateResponse(
         "album.html",
         {
@@ -415,6 +458,7 @@ def dog_album(request: Request, dog_id: int, uploaded: int = 0, failed: int = 0)
             "user": user,
             "dog": dog,
             "entries": entries,
+            "entry_photos": entry_photos,
             "uploaded": uploaded,
             "failed": failed,
         },
@@ -469,8 +513,8 @@ def entry_delete(request: Request, entry_id: int):
     if entry:
         dog = database.get_dog(user["id"], entry["dog_id"])
         if dog:
-            photo_file = UPLOAD_DIR / entry["photo_path"]
-            photo_file.unlink(missing_ok=True)
+            for photo_path in database.get_entry_photos(entry_id):
+                (UPLOAD_DIR / photo_path).unlink(missing_ok=True)
             database.delete_entry(entry_id)
             return RedirectResponse(url=f"/dog/{dog['id']}", status_code=303)
     return RedirectResponse(url="/", status_code=303)

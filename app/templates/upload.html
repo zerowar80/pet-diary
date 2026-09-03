@@ -31,6 +31,11 @@
     <label for="photo">사진 (여러 장 선택 가능)</label>
     <input type="file" id="photo" name="photos" accept="image/*" multiple required />
 
+    <label class="checkbox-row" for="bundle_photos">
+      <input type="checkbox" id="bundle_photos" name="bundle_photos" value="1" />
+      여러 장을 하나의 일기로 묶기 (체크 안 하면 장마다 각각 별도 일기)
+    </label>
+
     <label for="ai_provider">일기를 써줄 AI</label>
     <select id="ai_provider" name="ai_provider">
       {% for key, info in AI_PROVIDERS.items() %}
@@ -40,7 +45,7 @@
 
     <button type="submit">업로드하고 일기 생성</button>
   </form>
-  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요. 사진을 여러 장 고르면 장마다 각각 일기가 하나씩 생성됩니다.</p>
+  <p class="hint">처음 쓰는 이름이면 새 앨범이 자동으로 만들어져요. 목록에 있는 이름을 다시 선택하면 그 아이의 앨범에 계속 쌓입니다. 강아지 종류나 이름 제한은 없어요. "하나의 일기로 묶기"를 체크하면 여러 장이 사진첩 형태로 한 일기에 같이 담기고, 체크 안 하면 장마다 각각 별도 일기가 생성됩니다.</p>
   {% if dogs|length > 0 %}
   <p class="hint">자동 인식은 AI가 사진을 보고 등록된 아이들과 비교해 추정하는 기능이라 100% 정확하지 않을 수 있어요. 여러 마리를 키우고 계실 때 편하게 쓰시고, 결과가 이상하면 체크를 풀고 이름을 직접 입력해주세요.</p>
   {% endif %}
