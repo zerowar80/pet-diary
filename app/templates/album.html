@@ -54,6 +54,7 @@
         <span class="label-tag">TITLE.</span>
         <span class="title-value">{{ dog['name'] }}의 하루</span>
         {% if not guest %}
+        <a class="entry-manage-link" href="/entry/{{ entry['id'] }}/edit" aria-label="사진 관리">관리</a>
         <form class="entry-delete-form" action="/entry/{{ entry['id'] }}/delete" method="post" onsubmit="return confirm('이 일기를 삭제할까요?');">
           <button type="submit" class="entry-delete-btn" aria-label="일기 삭제">✕</button>
         </form>
@@ -62,9 +63,9 @@
       <div class="entry-photo-box{% if entry_photos.get(entry['id'], [])|length > 1 %} multi{% endif %}">
         {% for media in entry_photos.get(entry['id'], [{'path': entry['photo_path'], 'media_type': 'photo'}]) %}
         {% if media['media_type'] == 'video' %}
-        <video controls playsinline preload="metadata" src="/photos/{{ media['path'] }}"></video>
+        <video class="entry-media-item" controls playsinline preload="metadata" src="/photos/{{ media['path'] }}"></video>
         {% else %}
-        <img src="/photos/{{ media['path'] }}" alt="{{ dog['name'] }} 사진" />
+        <img class="entry-media-item" src="/photos/{{ media['path'] }}" alt="{{ dog['name'] }} 사진" />
         {% endif %}
         {% endfor %}
       </div>
@@ -74,6 +75,13 @@
       </div>
     </article>
     {% endfor %}
+  </div>
+
+  <div class="lightbox" id="lightbox" style="display:none;">
+    <button type="button" class="lightbox-close" id="lightboxClose" aria-label="닫기">✕</button>
+    <button type="button" class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="이전 사진">‹</button>
+    <div class="lightbox-content" id="lightboxContent"></div>
+    <button type="button" class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="다음 사진">›</button>
   </div>
 
   <script>
@@ -101,6 +109,7 @@
     nextBtn.addEventListener('click', function () { show(current + 1); });
 
     document.addEventListener('keydown', function (e) {
+      if (isLightboxOpen()) return;
       if (e.key === 'ArrowLeft') show(current - 1);
       if (e.key === 'ArrowRight') show(current + 1);
     });
@@ -112,7 +121,7 @@
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
     viewport.addEventListener('touchend', function (e) {
-      if (touchStartX === null) return;
+      if (touchStartX === null || isLightboxOpen()) { touchStartX = null; touchStartY = null; return; }
       var dx = e.changedTouches[0].clientX - touchStartX;
       var dy = e.changedTouches[0].clientY - touchStartY;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
@@ -124,6 +133,79 @@
 
     prevBtn.disabled = true;
     nextBtn.disabled = total <= 1;
+
+    // ---------- 사진/동영상 확대보기 (라이트박스) ----------
+    var lightbox = document.getElementById('lightbox');
+    var lightboxContent = document.getElementById('lightboxContent');
+    var lightboxClose = document.getElementById('lightboxClose');
+    var lightboxPrev = document.getElementById('lightboxPrev');
+    var lightboxNext = document.getElementById('lightboxNext');
+    var lightboxItems = [];
+    var lightboxIndex = 0;
+
+    function isLightboxOpen() {
+      return lightbox.style.display !== 'none';
+    }
+
+    function renderLightbox() {
+      var item = lightboxItems[lightboxIndex];
+      lightboxContent.innerHTML = '';
+      var el = item.tagName === 'VIDEO'
+        ? document.createElement('video')
+        : document.createElement('img');
+      if (item.tagName === 'VIDEO') {
+        el.src = item.getAttribute('src');
+        el.controls = true;
+        el.autoplay = true;
+        el.playsInline = true;
+      } else {
+        el.src = item.getAttribute('src');
+        el.alt = item.getAttribute('alt') || '';
+      }
+      lightboxContent.appendChild(el);
+      lightboxPrev.style.visibility = lightboxItems.length > 1 ? 'visible' : 'hidden';
+      lightboxNext.style.visibility = lightboxItems.length > 1 ? 'visible' : 'hidden';
+    }
+
+    function openLightbox(items, index) {
+      lightboxItems = items;
+      lightboxIndex = index;
+      lightbox.style.display = 'flex';
+      renderLightbox();
+    }
+
+    function closeLightbox() {
+      lightbox.style.display = 'none';
+      lightboxContent.innerHTML = '';
+    }
+
+    lightboxClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', function (e) {
+      if (e.target === lightbox) closeLightbox();
+    });
+    lightboxPrev.addEventListener('click', function () {
+      lightboxIndex = (lightboxIndex - 1 + lightboxItems.length) % lightboxItems.length;
+      renderLightbox();
+    });
+    lightboxNext.addEventListener('click', function () {
+      lightboxIndex = (lightboxIndex + 1) % lightboxItems.length;
+      renderLightbox();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (!isLightboxOpen()) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxPrev.click();
+      if (e.key === 'ArrowRight') lightboxNext.click();
+    });
+
+    viewport.querySelectorAll('.entry-photo-box').forEach(function (box) {
+      var items = Array.prototype.slice.call(box.querySelectorAll('.entry-media-item'));
+      items.forEach(function (el, i) {
+        el.addEventListener('click', function () {
+          openLightbox(items, i);
+        });
+      });
+    });
   })();
   </script>
   {% endif %}

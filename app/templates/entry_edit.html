@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}사진 관리{% endblock %}
+{% block content %}
+<section class="page narrow">
+  <a class="back-link" href="/dog/{{ dog['id'] }}">&larr; {{ dog['name'] }}의 일기로</a>
+  <h1>사진/동영상 관리</h1>
+  <p class="sub">{{ entry['created_at'][:10] }} 일기 · {{ media|length }}개</p>
+
+  <div class="media-manage-grid">
+    {% for m in media %}
+    <div class="media-manage-item">
+      {% if m['media_type'] == 'video' %}
+      <video src="/photos/{{ m['path'] }}" muted playsinline></video>
+      {% else %}
+      <img src="/photos/{{ m['path'] }}" alt="사진" />
+      {% endif %}
+      <form action="/entry/{{ entry['id'] }}/media/{{ m['id'] }}/delete" method="post"
+            onsubmit="return confirm('이 항목을 지울까요? {{ '마지막 하나라 일기 전체가 삭제됩니다.' if media|length == 1 else '' }}');">
+        <button type="submit" class="media-manage-delete" aria-label="삭제">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if entry_media_type == 'photo' %}
+  <form class="upload-form" action="/entry/{{ entry['id'] }}/media/add" method="post" enctype="multipart/form-data">
+    <label for="add_photos">사진 추가</label>
+    <input type="file" id="add_photos" name="photos" accept="image/*" multiple />
+    <button type="submit">추가하기</button>
+  </form>
+  <p class="hint">추가한 사진은 갤러리에 같이 담기지만, 일기 글 내용은 자동으로 다시 쓰이지 않아요.</p>
+  {% else %}
+  <p class="hint">동영상 일기는 사진을 추가로 덧붙일 수 없어요. 새로 올리려면 별도의 일기로 업로드해주세요.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -611,6 +611,88 @@ def entry_delete(request: Request, entry_id: int):
     return RedirectResponse(url="/", status_code=303)
 
 
+# ---------- 일기 안 사진/동영상 관리 (추가/개별 삭제) ----------
+
+@app.get("/entry/{entry_id}/edit")
+def entry_edit_form(request: Request, entry_id: int):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    entry = database.get_entry(entry_id)
+    if not entry:
+        return RedirectResponse(url="/", status_code=303)
+    dog = database.get_dog(user["id"], entry["dog_id"])
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+    media = database.get_entry_photos(entry_id)
+    entry_media_type = media[0]["media_type"] if media else "photo"
+    return templates.TemplateResponse(
+        "entry_edit.html",
+        {
+            "request": request, "user": user, "dog": dog, "entry": entry,
+            "media": media, "entry_media_type": entry_media_type, "error": None,
+        },
+    )
+
+
+@app.post("/entry/{entry_id}/media/add")
+async def entry_media_add(request: Request, entry_id: int, photos: list[UploadFile] = None):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    entry = database.get_entry(entry_id)
+    if not entry:
+        return RedirectResponse(url="/", status_code=303)
+    dog = database.get_dog(user["id"], entry["dog_id"])
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+
+    photos = [p for p in (photos or []) if p and p.filename]
+    if photos:
+        user_folder = UPLOAD_DIR / str(user["id"]) / dog["name"]
+        user_folder.mkdir(parents=True, exist_ok=True)
+        new_paths = []
+        for photo in photos:
+            ext = Path(photo.filename or "photo.jpg").suffix or ".jpg"
+            saved_name = f"{uuid.uuid4().hex}{ext}"
+            saved_path = user_folder / saved_name
+            with saved_path.open("wb") as f:
+                shutil.copyfileobj(photo.file, f)
+            new_paths.append(f"{user['id']}/{dog['name']}/{saved_name}")
+        database.add_entry_photos(entry_id, new_paths, media_type="photo")
+
+    return RedirectResponse(url=f"/entry/{entry_id}/edit", status_code=303)
+
+
+@app.post("/entry/{entry_id}/media/{entry_photo_id}/delete")
+def entry_media_delete(request: Request, entry_id: int, entry_photo_id: int):
+    user = require_login(request)
+    if not user:
+        return RedirectResponse(url="/login")
+    entry = database.get_entry(entry_id)
+    if not entry:
+        return RedirectResponse(url="/", status_code=303)
+    dog = database.get_dog(user["id"], entry["dog_id"])
+    if not dog:
+        return RedirectResponse(url="/", status_code=303)
+
+    total = database.count_entry_photos(entry_id)
+    if total <= 1:
+        # 마지막 하나 남은 사진/동영상이면 일기 전체를 삭제합니다.
+        for media in database.get_entry_photos(entry_id):
+            (UPLOAD_DIR / media["path"]).unlink(missing_ok=True)
+        database.delete_entry(entry_id)
+        return RedirectResponse(url=f"/dog/{dog['id']}", status_code=303)
+
+    row = database.get_entry_photo_row(entry_photo_id)
+    if row and row["entry_id"] == entry_id:
+        (UPLOAD_DIR / row["photo_path"]).unlink(missing_ok=True)
+        database.delete_entry_photo(entry_photo_id)
+        database.resync_entry_cover(entry_id)
+
+    return RedirectResponse(url=f"/entry/{entry_id}/edit", status_code=303)
+
+
 # ---------- 월간 하이라이트 ----------
 
 @app.get("/dog/{dog_id}/highlight")

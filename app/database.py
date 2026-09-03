@@ -285,14 +285,62 @@ def add_entry(dog_id: int, photo_paths: list[str], diary_text: str, ai_provider:
 
 
 def get_entry_photos(entry_id: int) -> list[dict]:
-    """[{"path": ..., "media_type": "photo"|"video"}, ...] 목록을 정렬 순서대로 반환합니다."""
+    """[{"id": ..., "path": ..., "media_type": "photo"|"video"}, ...] 목록을 정렬 순서대로 반환합니다."""
     conn = get_conn()
     rows = conn.execute(
-        "SELECT photo_path, media_type FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC",
+        "SELECT id, photo_path, media_type FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC",
         (entry_id,),
     ).fetchall()
     conn.close()
-    return [{"path": row["photo_path"], "media_type": row["media_type"] or "photo"} for row in rows]
+    return [{"id": row["id"], "path": row["photo_path"], "media_type": row["media_type"] or "photo"} for row in rows]
+
+
+def get_entry_photo_row(entry_photo_id: int):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM entry_photos WHERE id = ?", (entry_photo_id,)).fetchone()
+    conn.close()
+    return row
+
+
+def count_entry_photos(entry_id: int) -> int:
+    conn = get_conn()
+    row = conn.execute("SELECT COUNT(*) as cnt FROM entry_photos WHERE entry_id = ?", (entry_id,)).fetchone()
+    conn.close()
+    return row["cnt"]
+
+
+def delete_entry_photo(entry_photo_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM entry_photos WHERE id = ?", (entry_photo_id,))
+    conn.commit()
+    conn.close()
+
+
+def resync_entry_cover(entry_id: int):
+    """entry_photos의 남은 첫 번째 항목으로 entries.photo_path(대표 사진)를 다시 맞춥니다."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT photo_path FROM entry_photos WHERE entry_id = ? ORDER BY sort_order ASC LIMIT 1",
+        (entry_id,),
+    ).fetchone()
+    if row:
+        conn.execute("UPDATE entries SET photo_path = ? WHERE id = ?", (row["photo_path"], entry_id))
+        conn.commit()
+    conn.close()
+
+
+def add_entry_photos(entry_id: int, paths: list[str], media_type: str = "photo"):
+    """기존 일기에 사진/동영상을 추가로 덧붙입니다."""
+    conn = get_conn()
+    row = conn.execute("SELECT MAX(sort_order) as m FROM entry_photos WHERE entry_id = ?", (entry_id,)).fetchone()
+    start = (row["m"] + 1) if row and row["m"] is not None else 0
+    for i, path in enumerate(paths):
+        conn.execute(
+            "INSERT INTO entry_photos (entry_id, photo_path, media_type, sort_order) VALUES (?, ?, ?, ?)",
+            (entry_id, path, media_type, start + i),
+        )
+    conn.commit()
+    conn.close()
 
 
 def list_entries_for_dog(dog_id: int):
